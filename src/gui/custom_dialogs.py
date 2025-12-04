@@ -3,7 +3,6 @@ Custom styled dialog boxes for ASTRA Modlist Installer.
 Provides modern, themed alternatives to standard tkinter messageboxes.
 """
 import tkinter as tk
-from tkinter import ttk
 from utils import ThemeManager
 
 

@@ -15,10 +15,10 @@ import sys
 import shutil
 
 # Import from our modules
-from utils import detect_system_theme, ThemeManager
+from utils import ThemeManager
 from core import (
     LOG_FILE,
-    URL_VALIDATION_TIMEOUT_HEAD, MIN_FREE_SPACE_GB, THEME_COLORS,
+    URL_VALIDATION_TIMEOUT_HEAD, MIN_FREE_SPACE_GB,
     ModInstaller, ConfigManager
 )
 from gui.dialogs import (
@@ -81,7 +81,6 @@ class ModlistInstaller:
         # Theme manager (centralized)
         self.theme_manager = ThemeManager()
         self.current_theme = self.theme_manager.current_theme
-        self.theme_colors = self.theme_manager.colors
         
         # Create themed messagebox wrapper
         self.messagebox = ThemedMessageBox(self.theme_manager)

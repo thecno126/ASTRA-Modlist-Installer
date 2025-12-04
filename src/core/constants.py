@@ -37,23 +37,3 @@ URL_VALIDATION_TIMEOUT_HEAD = 6
 REQUEST_TIMEOUT = 30
 CHUNK_SIZE = 8192
 MIN_FREE_SPACE_GB = 5
-
-# Theme colors
-THEME_COLORS = {
-    'light': {
-        'listbox_bg': 'white',
-        'listbox_fg': 'black',
-        'category_bg': '#34495e',
-        'category_fg': 'white',
-        'selected_bg': '#3498db',
-        'selected_fg': 'white'
-    },
-    'dark': {
-        'listbox_bg': '#1e1e1e',
-        'listbox_fg': 'white',
-        'category_bg': '#34495e',
-        'category_fg': 'white',
-        'selected_bg': '#3498db',
-        'selected_fg': 'white'
-    }
-}

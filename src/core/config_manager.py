@@ -15,6 +15,39 @@ class ConfigManager:
         self.categories_file = CATEGORIES_FILE
         self.prefs_file = PREFS_FILE
     
+    def _atomic_save_json(self, file_path, data, indent=2, ensure_ascii=False):
+        """Save JSON data to file atomically to prevent corruption.
+        
+        Args:
+            file_path: Path object for the target file
+            data: Data to serialize to JSON
+            indent: JSON indentation (default: 2)
+            ensure_ascii: Whether to escape non-ASCII characters (default: False)
+        """
+        try:
+            # Ensure parent directory exists
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            # Atomic write: write to temp file then replace
+            temp_fd, temp_path = tempfile.mkstemp(
+                dir=file_path.parent,
+                prefix=f'.tmp_{file_path.stem}_',
+                suffix='.json'
+            )
+            try:
+                with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=indent, ensure_ascii=ensure_ascii)
+                # Atomic replace (preserves file if crash during write)
+                os.replace(temp_path, file_path)
+            except Exception:
+                # Cleanup temp file if something failed
+                try:
+                    os.unlink(temp_path)
+                except Exception:
+                    pass
+                raise
+        except Exception as e:
+            print(f"Error saving {file_path.name}: {e}")
+    
     def load_modlist_config(self):
         """Load modlist configuration from JSON file.
         
@@ -37,29 +70,8 @@ class ConfigManager:
         Args:
             data: Modlist configuration data to save
         """
-        try:
-            # Ensure parent directory exists
-            self.config_file.parent.mkdir(parents=True, exist_ok=True)
-            # Atomic write: write to temp file then replace
-            temp_fd, temp_path = tempfile.mkstemp(
-                dir=self.config_file.parent,
-                prefix='.tmp_modlist_',
-                suffix='.json'
-            )
-            try:
-                with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-                    json.dump(data, f, indent=2, ensure_ascii=False)
-                # Atomic replace (preserves file if crash during write)
-                os.replace(temp_path, self.config_file)
-            except Exception:
-                # Cleanup temp file if something failed
-                try:
-                    os.unlink(temp_path)
-                except Exception:
-                    pass
-                raise
-        except Exception as e:
-            print(f"Error saving config: {e}")
+        self._atomic_save_json(self.config_file, data, ensure_ascii=False)
+    
     
     def reset_to_default(self):
         """Reset configuration to default values and save.
@@ -102,27 +114,8 @@ class ConfigManager:
         Args:
             categories: List of category names
         """
-        try:
-            # Ensure parent directory exists
-            self.categories_file.parent.mkdir(parents=True, exist_ok=True)
-            # Atomic write: write to temp file then replace
-            temp_fd, temp_path = tempfile.mkstemp(
-                dir=self.categories_file.parent,
-                prefix='.tmp_categories_',
-                suffix='.json'
-            )
-            try:
-                with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-                    json.dump(categories, f, indent=2, ensure_ascii=False)
-                os.replace(temp_path, self.categories_file)
-            except Exception:
-                try:
-                    os.unlink(temp_path)
-                except Exception:
-                    pass
-                raise
-        except Exception as e:
-            print(f"Error saving categories: {e}")
+        self._atomic_save_json(self.categories_file, categories, ensure_ascii=False)
+    
     
     def load_preferences(self):
         """Load user preferences (last Starsector path, theme, etc.)
@@ -144,24 +137,5 @@ class ConfigManager:
         Args:
             prefs: Dictionary of preferences to save
         """
-        try:
-            # Ensure parent directory exists
-            self.prefs_file.parent.mkdir(parents=True, exist_ok=True)
-            # Atomic write: write to temp file then replace
-            temp_fd, temp_path = tempfile.mkstemp(
-                dir=self.prefs_file.parent,
-                prefix='.tmp_prefs_',
-                suffix='.json'
-            )
-            try:
-                with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-                    json.dump(prefs, f, indent=2)
-                os.replace(temp_path, self.prefs_file)
-            except Exception:
-                try:
-                    os.unlink(temp_path)
-                except Exception:
-                    pass
-                raise
-        except Exception as e:
-            print(f"Error saving preferences: {e}")
+        self._atomic_save_json(self.prefs_file, prefs)
+

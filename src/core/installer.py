@@ -5,7 +5,6 @@ Handles downloading and extracting mod archives.
 
 import requests
 import zipfile
-import threading
 import tempfile
 import os
 from pathlib import Path

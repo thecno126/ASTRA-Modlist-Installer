@@ -6,6 +6,7 @@ Contains all popup dialogs for adding, editing, importing, and exporting mods.
 import tkinter as tk
 from tkinter import ttk, filedialog, simpledialog
 import csv
+import threading
 from pathlib import Path
 
 
@@ -233,8 +234,6 @@ def open_manage_categories_dialog(parent, app):
 
 def open_import_csv_dialog(parent, app):
     """Open a file dialog to select a CSV file and import mods."""
-    import threading
-    
     csv_file = filedialog.askopenfilename(
         title="Select CSV file",
         filetypes=[("CSV files", "*.csv"), ("All files", "*")]
