@@ -1,0 +1,28 @@
+{
+  "modlist_name": "ASTRA",
+  "version": "1.0",
+  "starsector_version": "0.98a-RC8",
+  "description": "Starsector Modlist",
+  "mods": [
+    {
+      "name": "GraphicLib",
+      "download_url": "https://bitbucket.org/DarkRevenant/graphicslib/downloads/GraphicsLib_1.12.1.7z",
+      "category": "Libs"
+    },
+    {
+      "name": "Market Retrofits",
+      "download_url": "https://github.com/Alaricdragon/MarketRetrofits/archive/refs/heads/master.zip",
+      "category": "Libs"
+    },
+    {
+      "name": "Meme Portraits",
+      "download_url": "https://drive.google.com/uc?export=download&id=1W04kNVKEnZZDghE8jE9Yr6RJXXb_kBsq",
+      "category": "Cosmetic"
+    },
+    {
+      "name": "Nexerelin",
+      "download_url": "https://github.com/Histidine91/Nexerelin/releases/download/v0.12.1b/Nexerelin_0.12.1b.zip",
+      "category": "Megamods"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# PyInstaller
+*.manifest
+*.spec~
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+temp_mod.*
+*.tmp
+*.bak
+.tmp_*
+
+# Logs (keep log files for debugging but ignore runtime logs)
+*.log
+
+# Cache
+mod_cache/
+
+# Tests
+.pytest_cache/
+htmlcov/
+.coverage
+.tox/
+
+# User-specific config files (optional - uncomment to ignore local configs)
+# config/modlist_config.json
+# config/categories.json
+# config/installer_prefs.json
