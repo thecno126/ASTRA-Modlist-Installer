@@ -142,8 +142,9 @@ class ModInstaller:
                     return False
 
                 # Check if mod already installed
-                if self._is_already_installed(members, mods_dir):
-                    return False
+                already_result = self._is_already_installed(members, mods_dir)
+                if already_result:
+                    return already_result
 
                 # Validate all members for zip-slip protection
                 mods_dir_resolved = mods_dir.resolve()
@@ -173,8 +174,9 @@ class ModInstaller:
                 return False
 
             # Check if mod already installed
-            if self._is_already_installed(members, mods_dir):
-                return False
+            already_result = self._is_already_installed(members, mods_dir)
+            if already_result:
+                return already_result
 
             # Validate all members for zip-slip protection
             mods_dir_resolved = mods_dir.resolve()
@@ -208,14 +210,14 @@ class ModInstaller:
             root_dir = next(iter(top_level))
             mod_root = mods_dir / root_dir
             if mod_root.exists():
-                self.log(f"  ⚠ Mod already installed (found folder: {root_dir}), skipping")
-                return True
+                self.log(f"  ℹ Skipped: Mod '{root_dir}' already installed", info=True)
+                return 'skipped'
         else:
             # Archive has multiple files at root level
             for member in members:
                 dest = mods_dir / Path(member)
                 if dest.exists():
-                    self.log("  ⚠ Mod installation would overlap existing files, skipping")
-                    return True
+                    self.log("  ℹ Skipped: Installation would overlap existing files", info=True)
+                    return 'skipped'
         
         return False

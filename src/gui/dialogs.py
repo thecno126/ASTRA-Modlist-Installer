@@ -4,7 +4,7 @@ Contains all popup dialogs for adding, editing, importing, and exporting mods.
 """
 
 import tkinter as tk
-from tkinter import ttk, filedialog, simpledialog, messagebox
+from tkinter import ttk, filedialog, simpledialog
 import csv
 from pathlib import Path
 
@@ -38,12 +38,12 @@ def open_add_mod_dialog(parent, app):
         name = name_var.get().strip()
         url = url_var.get().strip()
         if not name or not url:
-            messagebox.showerror("Error", "Name and URL are required")
+            app.messagebox.showerror("Error", "Name and URL are required")
             return
         app.log(f"Validating URL: {url}...")
         valid = app.validate_url(url)
         if not valid:
-            messagebox.showerror("Error", f"URL is not reachable: {url}")
+            app.messagebox.showerror("Error", f"URL is not reachable: {url}")
             return
 
         mod = {"name": name, "download_url": url}
@@ -55,7 +55,7 @@ def open_add_mod_dialog(parent, app):
             mod["category"] = "Uncategorized"
 
         app.add_mod_to_config(mod)
-        messagebox.showinfo("Success", f"Mod '{name}' has been added to the modlist")
+        app.messagebox.showsuccess("Success", f"Mod '{name}' has been added to the modlist")
         dlg.destroy()
 
     btn_frame = tk.Frame(dlg)
@@ -142,12 +142,12 @@ def open_manage_categories_dialog(parent, app):
                 app.config_manager.save_categories(app.categories)
                 app.log(f"Added category: {new_cat}")
             else:
-                messagebox.showwarning("Duplicate", f"Category '{new_cat}' already exists", parent=dlg)
+                app.messagebox.showwarning("Duplicate", f"Category '{new_cat}' already exists", parent=dlg)
     
     def rename_category():
         selection = cat_listbox.curselection()
         if not selection:
-            messagebox.showwarning("No Selection", "Please select a category to rename", parent=dlg)
+            app.messagebox.showwarning("No Selection", "Please select a category to rename", parent=dlg)
             return
         
         idx = selection[0]
@@ -157,7 +157,7 @@ def open_manage_categories_dialog(parent, app):
         if new_name and new_name.strip() and new_name.strip() != old_name:
             new_name = new_name.strip()
             if new_name in app.categories:
-                messagebox.showwarning("Duplicate", f"Category '{new_name}' already exists", parent=dlg)
+                app.messagebox.showwarning("Duplicate", f"Category '{new_name}' already exists", parent=dlg)
                 return
             
             # Update category in all mods
@@ -178,7 +178,7 @@ def open_manage_categories_dialog(parent, app):
     def delete_category():
         selection = cat_listbox.curselection()
         if not selection:
-            messagebox.showwarning("No Selection", "Please select a category to delete", parent=dlg)
+            app.messagebox.showwarning("No Selection", "Please select a category to delete", parent=dlg)
             return
         
         idx = selection[0]
@@ -188,7 +188,7 @@ def open_manage_categories_dialog(parent, app):
         in_use = any(mod.get('category') == cat_name for mod in app.modlist_data.get('mods', []))
         
         if in_use:
-            response = messagebox.askyesno("Category in Use", 
+            response = app.messagebox.askyesno("Category in Use", 
                 f"Category '{cat_name}' is used by some mods.\nMods will be moved to 'Uncategorized'.\nContinue?",
                 parent=dlg)
             if not response:
@@ -282,11 +282,11 @@ def open_export_csv_dialog(parent, app):
                 })
         
         app.log(f"Exported {len(app.modlist_data.get('mods', []))} mods to {csv_file}")
-        messagebox.showinfo("Export Complete", f"Modlist exported successfully to:\n{csv_file}")
+        app.messagebox.showsuccess("Export Complete", f"Modlist exported successfully to:\n{csv_file}")
     
     except Exception as e:
         app.log(f"Error exporting CSV: {e}", error=True)
-        messagebox.showerror("Export Error", f"Failed to export CSV:\n{str(e)}")
+        app.messagebox.showerror("Export Error", f"Failed to export CSV:\n{str(e)}")
 
 
 def _import_csv_file(csv_path: str, app):
@@ -374,11 +374,11 @@ def _import_csv_file(csv_path: str, app):
                 category = (r.get('category') or '').strip()
 
                 if not name or not url:
-                    app.log(f"  Skipping row (missing name/url): {r}")
+                    app.log(f"  ℹ Skipped: Row {r} (missing name/url)", info=True)
                     continue
 
                 if not app.validate_url(url):
-                    app.log(f"  ⚠ URL not reachable, skipping: {url}")
+                    app.log(f"  ℹ Skipped: URL not reachable - {url}", info=True)
                     continue
 
                 mod_obj = {
@@ -400,7 +400,7 @@ def _import_csv_file(csv_path: str, app):
                     added_count += 1
                     app.log(f"  Added: {name}")
                 else:
-                    app.log(f"  Skipped (duplicate): {name}")
+                    app.log(f"  ℹ Skipped: '{name}' (duplicate)", info=True)
             
             # Add new categories to the list
             if new_categories:
@@ -421,16 +421,16 @@ def _import_csv_file(csv_path: str, app):
             if metadata_updated:
                 summary += " Modlist metadata updated."
             app.log(summary)
-            app.root.after(0, lambda: messagebox.showinfo("Import complete", summary))
+            app.root.after(0, lambda: app.messagebox.showsuccess("Import complete", summary))
         else:
             summary = "Modlist metadata updated."
             app.log(summary)
-            app.root.after(0, lambda: messagebox.showinfo("Import complete", summary))
+            app.root.after(0, lambda: app.messagebox.showsuccess("Import complete", summary))
         
         app.root.after(0, lambda: _set_ui_enabled(app, True))
     except Exception as e:
         app.log(f"  ✗ Error importing CSV: {e}", error=True)
-        app.root.after(0, lambda: messagebox.showerror("Import failed", f"Error during CSV import: {e}"))
+        app.root.after(0, lambda: app.messagebox.showerror("Import failed", f"Error during CSV import: {e}"))
         app.root.after(0, lambda: _set_ui_enabled(app, True))
 
 

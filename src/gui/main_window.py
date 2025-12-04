@@ -4,8 +4,9 @@ Simplified version using modular components.
 """
 
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 import requests
+from gui import custom_dialogs
 from pathlib import Path
 import threading
 import concurrent.futures
@@ -36,6 +37,31 @@ from gui.ui_builder import (
 )
 
 
+class ThemedMessageBox:
+    """Wrapper for messagebox functions that injects theme_manager automatically."""
+    
+    def __init__(self, theme_manager):
+        self.theme_manager = theme_manager
+    
+    def showinfo(self, title, message, parent=None):
+        return custom_dialogs.showinfo(title, message, parent, self.theme_manager)
+    
+    def showsuccess(self, title, message, parent=None):
+        return custom_dialogs.showsuccess(title, message, parent, self.theme_manager)
+    
+    def showerror(self, title, message, parent=None):
+        return custom_dialogs.showerror(title, message, parent, self.theme_manager)
+    
+    def showwarning(self, title, message, parent=None):
+        return custom_dialogs.showwarning(title, message, parent, self.theme_manager)
+    
+    def askyesno(self, title, message, parent=None):
+        return custom_dialogs.askyesno(title, message, parent, self.theme_manager)
+    
+    def askokcancel(self, title, message, parent=None):
+        return custom_dialogs.askokcancel(title, message, parent, self.theme_manager)
+
+
 class ModlistInstaller:
     """Main application window for the Modlist Installer."""
     
@@ -56,6 +82,9 @@ class ModlistInstaller:
         self.theme_manager = ThemeManager()
         self.current_theme = self.theme_manager.current_theme
         self.theme_colors = self.theme_manager.colors
+        
+        # Create themed messagebox wrapper
+        self.messagebox = ThemedMessageBox(self.theme_manager)
         
         # Installation variables
         self.starsector_path = tk.StringVar()
@@ -240,17 +269,17 @@ class ModlistInstaller:
     def remove_selected_mod(self):
         """Remove the currently selected mod."""
         if self.selected_mod_line is None:
-            messagebox.showwarning("No Selection", "Please select a mod to remove")
+            self.messagebox.showwarning("No Selection", "Please select a mod to remove")
             return
         
         line_text = self.mod_listbox.get(f"{self.selected_mod_line}.0", f"{self.selected_mod_line}.end")
         mod_name = self._extract_mod_name_from_line(line_text)
         
         if not mod_name:
-            messagebox.showwarning("Invalid Selection", "Please select a mod (not a category header)")
+            self.messagebox.showwarning("Invalid Selection", "Please select a mod (not a category header)")
             return
         
-        if not messagebox.askyesno(
+        if not self.messagebox.askyesno(
             "Confirm Removal",
             f"Are you sure you want to remove '{mod_name}' from the modlist?\n\nThis action cannot be undone."
         ):
@@ -266,7 +295,7 @@ class ModlistInstaller:
             self.display_modlist_info()
             self.selected_mod_line = None
         else:
-            messagebox.showerror("Error", f"Mod '{mod_name}' not found in configuration")
+            self.messagebox.showerror("Error", f"Mod '{mod_name}' not found in configuration")
     
     # ============================================
     # Mod Reordering
@@ -388,7 +417,7 @@ class ModlistInstaller:
     
     def reset_modlist_config(self):
         """Reset the modlist configuration."""
-        response = messagebox.askyesno(
+        response = self.messagebox.askyesno(
             "Confirm Reset",
             "Are you sure you want to reset the modlist configuration?\n\nThis will remove all mods and reset metadata to default values.\n\nThis action cannot be undone."
         )
@@ -400,7 +429,7 @@ class ModlistInstaller:
         self.modlist_data = self.config_manager.reset_to_default()
         self.display_modlist_info()
         self.log("Configuration reset to default.")
-        messagebox.showinfo("Reset Complete", "Modlist configuration has been reset to default.")
+        self.messagebox.showsuccess("Reset Complete", "Modlist configuration has been reset to default.")
     
     def configure_listbox_theme(self):
         """Configure listbox colors based on theme."""
@@ -498,14 +527,21 @@ class ModlistInstaller:
         mods = self.modlist_data.get('mods', [])
         return next((m for m in mods if m['name'] == mod_name), None)
     
-    def log(self, message, error=False):
-        """Append a message to the log."""
+    def log(self, message, error=False, info=False):
+        """Append a message to the log.
+        
+        Args:
+            message: Message to log
+            error: If True, display in red (for errors)
+            info: If True, display in blue (for informational messages like skips)
+        """
         if threading.current_thread() is not threading.main_thread():
-            self.root.after(0, lambda: self.log(message, error))
+            self.root.after(0, lambda: self.log(message, error, info))
             return
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_entry = f"[{timestamp}] {'ERROR: ' if error else ''}{message}\n"
+        prefix = 'ERROR: ' if error else 'INFO: ' if info else ''
+        log_entry = f"[{timestamp}] {prefix}{message}\n"
         try:
             with open(LOG_FILE, 'a', encoding='utf-8') as f:
                 f.write(log_entry)
@@ -513,10 +549,16 @@ class ModlistInstaller:
             pass
 
         self.log_text.config(state=tk.NORMAL)
-        tag = "error" if error else "normal"
-        self.log_text.insert(tk.END, f"{message}\n", tag)
         if error:
+            tag = "error"
             self.log_text.tag_config("error", foreground="red")
+        elif info:
+            tag = "info"
+            self.log_text.tag_config("info", foreground="#3498db")  # Blue
+        else:
+            tag = "normal"
+        
+        self.log_text.insert(tk.END, f"{message}\n", tag)
         self.log_text.see(tk.END)
         self.log_text.config(state=tk.DISABLED)
         self.root.update_idletasks()
@@ -613,7 +655,7 @@ class ModlistInstaller:
                 self.update_path_status()
                 self.log(f"Starsector path set to: {folder}")
             else:
-                messagebox.showerror("Invalid Path", message)
+                self.messagebox.showerror("Invalid Path", message)
     
     def update_path_status(self):
         """Update the path status label."""
@@ -652,7 +694,7 @@ class ModlistInstaller:
             return
         
         if not self.starsector_path.get():
-            response = messagebox.askyesno(
+            response = self.messagebox.askyesno(
                 "Starsector Path Required",
                 "Starsector installation folder not set.\n\nWould you like to select it now?"
             )
@@ -665,7 +707,7 @@ class ModlistInstaller:
                         self.save_preferences()
                         self.log(f"Starsector path set: {folder}")
                     else:
-                        messagebox.showerror("Invalid Path", message)
+                        self.messagebox.showerror("Invalid Path", message)
                         return
                 else:
                     return
@@ -676,22 +718,22 @@ class ModlistInstaller:
         
         is_valid, message = self.validate_starsector_path(str(starsector_dir))
         if not is_valid:
-            messagebox.showerror("Invalid Path", message)
+            self.messagebox.showerror("Invalid Path", message)
             return
         
         has_space, space_msg = self.check_disk_space()
         if not has_space:
-            response = messagebox.askyesno("Low Disk Space", f"{space_msg}\n\nContinue anyway?")
+            response = self.messagebox.askyesno("Low Disk Space", f"{space_msg}\n\nContinue anyway?")
             if not response:
                 return
         
         mods_dir = starsector_dir / "mods"
         
         if not self.modlist_data:
-            messagebox.showerror("Error", "No modlist configuration loaded")
+            self.messagebox.showerror("Error", "No modlist configuration loaded")
             return
         
-        response = messagebox.askyesno(
+        response = self.messagebox.askyesno(
             "Confirmation",
             f"Install {len(self.modlist_data['mods'])} mods into:\n{mods_dir}\n\nContinue?"
         )
@@ -749,7 +791,7 @@ class ModlistInstaller:
         skipped = 0
         
         if not download_results:
-            self.log("All mods were skipped (already installed or failed to download)")
+            self.log("All mods were skipped (already installed or failed to download)", info=True)
             self.install_progress_bar['value'] = 100
         
         for i, (mod, temp_path, is_7z) in enumerate(download_results, 1):
@@ -766,7 +808,10 @@ class ModlistInstaller:
                     Path(temp_path).unlink()
                 except Exception:
                     pass
-                if success:
+                if success == 'skipped':
+                    # Already logged by installer
+                    skipped += 1
+                elif success:
                     self.log(f"  ✓ {mod['name']} installed successfully")
                     extracted += 1
                 else:
@@ -817,7 +862,7 @@ class ModlistInstaller:
         if detail_parts:
             summary_msg = f"{', '.join(detail_parts)}"
         
-        messagebox.showinfo(
+        self.messagebox.showinfo(
             "Installation complete",
             f"{summary_msg}\n\nLaunch Starsector to manage mod activation."
         )

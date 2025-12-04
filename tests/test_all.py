@@ -74,8 +74,8 @@ from src.core.installer import ModInstaller
 class Logger:
     def __init__(self):
         self.messages = []
-    def __call__(self, msg, error=False):
-        self.messages.append((msg, error))
+    def __call__(self, msg, error=False, info=False):
+        self.messages.append((msg, error, info))
 
 
 def make_in_memory_zip(files):
@@ -182,8 +182,8 @@ def test_already_installed_single_root(tmp_path, monkeypatch):
     mods_dir = tmp_path / "Starsector" / "mods"
     (mods_dir / "ExistingMod").mkdir(parents=True)
     ok = installer.install_mod({"name": "ExistingMod", "download_url": "http://example.com/mod.zip"}, mods_dir)
-    assert ok is False
-    assert any("already installed" in m[0] for m in logs.messages)
+    assert ok == 'skipped'
+    assert any("Skipped" in m[0] and "already installed" in m[0] for m in logs.messages)
 
 
 def test_overlap_at_root(tmp_path, monkeypatch):
@@ -207,7 +207,7 @@ def test_overlap_at_root(tmp_path, monkeypatch):
     # Pre-create overlapping file
     (mods_dir / "readme.txt").write_text("existing")
     ok = installer.install_mod({"name": "RootOverlap", "download_url": "http://example.com/mod.zip"}, mods_dir)
-    assert ok is False
+    assert ok == 'skipped'
     assert any(("overlap" in m[0].lower()) or ("skipping" in m[0].lower()) for m in logs.messages)
 
 
