@@ -7,6 +7,8 @@ import requests
 import zipfile
 import tempfile
 import os
+import re
+import shutil
 from pathlib import Path
 
 try:
@@ -16,6 +18,52 @@ except ImportError:
     HAS_7ZIP = False
 
 from .constants import REQUEST_TIMEOUT, CHUNK_SIZE
+
+
+def _compare_versions(version1, version2):
+    """
+    Compare two version strings.
+    
+    Args:
+        version1: First version string (e.g., "1.2.3" or "2.0a")
+        version2: Second version string
+        
+    Returns:
+        int: 1 if version1 > version2, -1 if version1 < version2, 0 if equal
+    """
+    if version1 == version2:
+        return 0
+    
+    # Extract numeric parts and compare
+    def parse_version(v):
+        # Remove common prefixes and extract numbers
+        v = str(v).lower().replace('v', '').replace('version', '').strip()
+        # Split by dots, hyphens, or letters
+        parts = re.findall(r'\d+|[a-z]+', v)
+        result = []
+        for part in parts:
+            if part.isdigit():
+                result.append(int(part))
+            else:
+                # Convert letters to numbers (a=1, b=2, etc.)
+                result.append(ord(part[0]) - ord('a') + 1)
+        return result
+    
+    v1_parts = parse_version(version1)
+    v2_parts = parse_version(version2)
+    
+    # Pad shorter version with zeros
+    max_len = max(len(v1_parts), len(v2_parts))
+    v1_parts.extend([0] * (max_len - len(v1_parts)))
+    v2_parts.extend([0] * (max_len - len(v2_parts)))
+    
+    for p1, p2 in zip(v1_parts, v2_parts):
+        if p1 > p2:
+            return 1
+        elif p1 < p2:
+            return -1
+    
+    return 0
 
 
 class ModInstaller:
@@ -29,6 +77,64 @@ class ModInstaller:
             log_callback: Function to call for logging messages
         """
         self.log = log_callback
+        self.download_failures = {}  # Track failed downloads: {mod_name: {'url': url, 'attempts': count}}
+    
+    def _extract_version_from_text(self, content):
+        """
+        Extract version string directly from raw mod_info.json text.
+        Searches for "version" field (not "gameVersion") and extracts the value.
+        
+        This bypasses JSON parsing entirely, making it robust against malformed JSON.
+        
+        Args:
+            content: Raw text content of mod_info.json
+            
+        Returns:
+            str: Version string (e.g., "1.5.0", "0.12.1b", "2.0a")
+        """
+        # First try: object format like version: {major: 0, minor: 12, patch: "1b"}
+        # This must come BEFORE the simple string match to avoid capturing gameVersion
+        version_block = re.search(r'"?version"?\s*:\s*\{([^}]+)\}', content, re.IGNORECASE)
+        if version_block:
+            block = version_block.group(1)
+            major = re.search(r'"?major"?\s*:\s*["\']?([0-9]+)', block, re.IGNORECASE)
+            minor = re.search(r'"?minor"?\s*:\s*["\']?([0-9]+)', block, re.IGNORECASE)
+            patch = re.search(r'"?patch"?\s*:\s*["\']?([0-9a-zA-Z]+)', block, re.IGNORECASE)
+            
+            if major:
+                parts = [major.group(1)]
+                if minor:
+                    parts.append(minor.group(1))
+                if patch:
+                    parts.append(patch.group(1))
+                return '.'.join(parts)
+        
+        # Second try: simple version string like "version": "1.5.0" or version: "1.5.0"
+        # Use negative lookbehind to exclude "gameVersion"
+        match = re.search(r'(?<!game)"?version"?\s*:\s*["\']?([0-9]+[0-9a-zA-Z._-]*)', content, re.IGNORECASE)
+        if match:
+            version = match.group(1).rstrip('",}] ')
+            return version
+        
+        return 'unknown'
+    
+    def _extract_id_from_text(self, content):
+        """
+        Extract mod ID directly from raw mod_info.json text.
+        Searches for "id" and extracts the value.
+        
+        Args:
+            content: Raw text content of mod_info.json
+            
+        Returns:
+            str: Mod ID or None if not found
+        """
+        # Look for "id" followed by value
+        # Handles: "id": "value", id: "value", id:'value'
+        match = re.search(r'id["\s:]+["\']([^"\']+)["\']', content, re.IGNORECASE)
+        if match:
+            return match.group(1)
+        return None
     
     def install_mod(self, mod, mods_dir):
         """
@@ -89,6 +195,8 @@ class ModInstaller:
             return temp_path, is_7z
         except requests.exceptions.RequestException as e:
             self.log(f"  ✗ Download error: {e}", error=True)
+            # Track failure for Google Drive URLs
+            self._track_download_failure(mod)
             try:
                 if temp_fd is not None:
                     os.close(temp_fd)
@@ -97,12 +205,34 @@ class ModInstaller:
             return None, False
         except Exception as e:
             self.log(f"  ✗ Unexpected error during download: {e}", error=True)
+            self._track_download_failure(mod)
             try:
                 if temp_fd is not None:
                     os.close(temp_fd)
             except Exception:
                 pass
             return None, False
+    
+    def _track_download_failure(self, mod):
+        """Track download failures for Google Drive URLs."""
+        url = mod['download_url']
+        if 'drive.google.com' in url or 'drive.usercontent.google.com' in url:
+            mod_name = mod.get('name', 'Unknown')
+            if mod_name not in self.download_failures:
+                self.download_failures[mod_name] = {'url': url, 'attempts': 0}
+            self.download_failures[mod_name]['attempts'] += 1
+    
+    def get_failed_google_drive_mods(self):
+        """Get list of Google Drive mods that failed after multiple attempts."""
+        failed = []
+        for mod_name, info in self.download_failures.items():
+            if info['attempts'] >= 3:
+                failed.append({'name': mod_name, 'url': info['url']})
+        return failed
+    
+    def reset_failure_tracking(self):
+        """Reset the download failure tracking."""
+        self.download_failures = {}
     
     def extract_archive(self, temp_file, mods_dir, is_7z):
         """
@@ -114,7 +244,7 @@ class ModInstaller:
             is_7z: Boolean indicating if the file is a 7z archive
             
         Returns:
-            bool: True if extraction succeeded, False otherwise
+            bool or str: True if extraction succeeded, 'skipped' if skipped, False otherwise
         """
         try:
             if is_7z:
@@ -140,8 +270,8 @@ class ModInstaller:
                     self.log("  ✗ Error: Archive is empty", error=True)
                     return False
 
-                # Check if mod already installed
-                already_result = self._is_already_installed(members, mods_dir)
+                # Check if mod already installed (7z doesn't support easy JSON reading, skip version check)
+                already_result = self._is_already_installed_simple(members, mods_dir)
                 if already_result:
                     return already_result
 
@@ -172,9 +302,21 @@ class ModInstaller:
                 self.log("  ✗ Error: Archive is empty", error=True)
                 return False
 
-            # Check if mod already installed
-            already_result = self._is_already_installed(members, mods_dir)
-            if already_result:
+            # Check if mod already installed and get folder to delete if updating
+            already_result = self._is_already_installed_zip(zip_ref, members, mods_dir)
+            
+            # If it's a tuple, it means we need to delete the old version first
+            if isinstance(already_result, tuple):
+                folder_to_delete, is_update = already_result
+                if is_update and folder_to_delete:
+                    self.log(f"  🗑 Removing old version: {folder_to_delete.name}", info=True)
+                    try:
+                        shutil.rmtree(folder_to_delete)
+                    except Exception as e:
+                        self.log(f"  ✗ Error removing old version: {e}", error=True)
+                        return False
+            elif already_result:
+                # String result means 'skipped'
                 return already_result
 
             # Validate all members for zip-slip protection
@@ -191,16 +333,47 @@ class ModInstaller:
             zip_ref.extractall(mods_dir)
             return True
     
-    def _is_already_installed(self, members, mods_dir):
+    def _is_already_installed_simple(self, members, mods_dir):
         """
-        Check if a mod is already installed.
+        Simple check if mod folder exists (for 7z archives).
         
         Args:
             members: List of file paths in the archive
             mods_dir: Path to the Starsector mods directory
             
         Returns:
-            bool: True if mod is already installed, False otherwise
+            str or bool: 'skipped' if already installed, False otherwise
+        """
+        top_level = set(Path(m).parts[0] for m in members if Path(m).parts)
+
+        if len(top_level) == 1:
+            root_dir = next(iter(top_level))
+            mod_root = mods_dir / root_dir
+            if mod_root.exists():
+                self.log(f"  ℹ Skipped: Mod '{root_dir}' already installed", info=True)
+                return 'skipped'
+        else:
+            for member in members:
+                dest = mods_dir / Path(member)
+                if dest.exists():
+                    self.log("  ℹ Skipped: Installation would overlap existing files", info=True)
+                    return 'skipped'
+        
+        return False
+    
+    def _is_already_installed_zip(self, zip_ref, members, mods_dir):
+        """
+        Check if a mod is already installed by comparing mod_info.json versions.
+        
+        Args:
+            zip_ref: ZipFile object
+            members: List of file paths in the archive
+            mods_dir: Path to the Starsector mods directory
+            
+        Returns:
+            str: 'skipped' if same/older version
+            tuple: (folder_path, True) if update needed (newer version)
+            bool: False if not installed
         """
         top_level = set(Path(m).parts[0] for m in members if Path(m).parts)
 
@@ -208,9 +381,55 @@ class ModInstaller:
             # Archive has a single root folder
             root_dir = next(iter(top_level))
             mod_root = mods_dir / root_dir
+            
             if mod_root.exists():
-                self.log(f"  ℹ Skipped: Mod '{root_dir}' already installed", info=True)
-                return 'skipped'
+                # Check if mod_info.json exists in both archive and installed mod
+                mod_info_path_in_archive = f"{root_dir}/mod_info.json"
+                installed_mod_info = mod_root / "mod_info.json"
+                
+                if mod_info_path_in_archive in members and installed_mod_info.exists():
+                    try:
+                        # Read installed mod_info.json (raw text)
+                        with open(installed_mod_info, 'r', encoding='utf-8') as f:
+                            installed_content = f.read()
+                        
+                        # Read new mod_info.json from archive (raw text)
+                        with zip_ref.open(mod_info_path_in_archive) as archive_file:
+                            new_content = archive_file.read().decode('utf-8')
+                        
+                        # Extract versions directly from raw text (no JSON parsing needed)
+                        installed_version = self._extract_version_from_text(installed_content)
+                        new_version = self._extract_version_from_text(new_content)
+                        
+                        # Extract mod ID directly from raw text (fallback to folder name)
+                        mod_id = self._extract_id_from_text(new_content) or root_dir
+                        
+                        # Compare versions
+                        version_comparison = _compare_versions(new_version, installed_version)
+                        
+                        if version_comparison > 0:
+                            # New version is higher - return folder to delete
+                            self.log(f"  ⬆ Update available: '{mod_id}' {installed_version} → {new_version}", info=True)
+                            self.log(f"  Installing newer version...", info=True)
+                            return (mod_root, True)  # Return folder to delete + update flag
+                        elif version_comparison < 0:
+                            # New version is lower - skip
+                            self.log(f"  ℹ Skipped: '{mod_id}' v{installed_version} is newer than archive v{new_version}", info=True)
+                            return 'skipped'
+                        else:
+                            # Same version - skip
+                            self.log(f"  ℹ Skipped: '{mod_id}' v{installed_version} already installed", info=True)
+                            return 'skipped'
+                            
+                    except (IOError, UnicodeDecodeError) as e:
+                        # File reading issues
+                        self.log(f"  ⚠ Warning: Error reading mod metadata - {type(e).__name__}", info=True)
+                        self.log(f"  ℹ Skipped: Mod '{root_dir}' already installed (version comparison unavailable)", info=True)
+                        return 'skipped'
+                else:
+                    # No mod_info.json, just check existence
+                    self.log(f"  ℹ Skipped: Mod '{root_dir}' already installed", info=True)
+                    return 'skipped'
         else:
             # Archive has multiple files at root level
             for member in members:

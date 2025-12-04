@@ -5,8 +5,18 @@
   "description": "Starsector Modlist",
   "mods": [
     {
+      "name": "Lunalib",
+      "download_url": "https://github.com/Lukas22041/LunaLib/releases/latest/download/LunaLib.zip",
+      "category": "Libs"
+    },
+    {
       "name": "GraphicLib",
       "download_url": "https://bitbucket.org/DarkRevenant/graphicslib/downloads/GraphicsLib_1.12.1.7z",
+      "category": "Libs"
+    },
+    {
+      "name": "MagicLib",
+      "download_url": "https://github.com/MagicLibStarsector/MagicLib/releases/latest/download/MagicLib.zip",
       "category": "Libs"
     },
     {
@@ -15,14 +25,39 @@
       "category": "Libs"
     },
     {
-      "name": "Meme Portraits",
-      "download_url": "https://drive.google.com/uc?export=download&id=1W04kNVKEnZZDghE8jE9Yr6RJXXb_kBsq",
-      "category": "Bonuses"
-    },
-    {
       "name": "Nexerelin",
       "download_url": "https://github.com/Histidine91/Nexerelin/releases/download/v0.12.1b/Nexerelin_0.12.1b.zip",
       "category": "Megamods"
+    },
+    {
+      "name": "RAT",
+      "download_url": "https://github.com/Lukas22041/Random-Assortment-of-Things/releases/latest/download/Random-Assortment-of-Things.zip",
+      "category": "Megamods"
+    },
+    {
+      "name": "Grand Colonies",
+      "download_url": "https://github.com/SirHartley/Grand.Colonies/releases/download/2.1.b/Grand.Colonies2.1.b.zip",
+      "category": "Gameplay"
+    },
+    {
+      "name": "Roider Union",
+      "download_url": "https://github.com/SafariJohn/Roider-Union/raw/refs/heads/main/Roider%20Union%202.2.6.zip",
+      "category": "Factions"
+    },
+    {
+      "name": "PAGSM",
+      "download_url": "https://drive.usercontent.google.com/download?id=1FDZoF81T14cAx3_feXBBqXuBFTFOGd1y&export=download&confirm=t",
+      "category": "Factions"
+    },
+    {
+      "name": "Tahlan Shipworks",
+      "download_url": "https://github.com/niatahl/tahlan-shipworks/releases/download/1.4/tahlan-shipworks.zip",
+      "category": "Factions"
+    },
+    {
+      "name": "Meme Portraits",
+      "download_url": "https://drive.google.com/uc?export=download&id=1W04kNVKEnZZDghE8jE9Yr6RJXXb_kBsq",
+      "category": "Bonuses"
     }
   ]
 }

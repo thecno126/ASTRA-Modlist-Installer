@@ -15,7 +15,6 @@ import sys
 import shutil
 
 # Import from our modules
-from utils import ThemeManager
 from core import (
     LOG_FILE,
     URL_VALIDATION_TIMEOUT_HEAD, MIN_FREE_SPACE_GB,
@@ -37,31 +36,6 @@ from gui.ui_builder import (
 )
 
 
-class ThemedMessageBox:
-    """Wrapper for messagebox functions that injects theme_manager automatically."""
-    
-    def __init__(self, theme_manager):
-        self.theme_manager = theme_manager
-    
-    def showinfo(self, title, message, parent=None):
-        return custom_dialogs.showinfo(title, message, parent, self.theme_manager)
-    
-    def showsuccess(self, title, message, parent=None):
-        return custom_dialogs.showsuccess(title, message, parent, self.theme_manager)
-    
-    def showerror(self, title, message, parent=None):
-        return custom_dialogs.showerror(title, message, parent, self.theme_manager)
-    
-    def showwarning(self, title, message, parent=None):
-        return custom_dialogs.showwarning(title, message, parent, self.theme_manager)
-    
-    def askyesno(self, title, message, parent=None):
-        return custom_dialogs.askyesno(title, message, parent, self.theme_manager)
-    
-    def askokcancel(self, title, message, parent=None):
-        return custom_dialogs.askokcancel(title, message, parent, self.theme_manager)
-
-
 class ModlistInstaller:
     """Main application window for the Modlist Installer."""
     
@@ -77,13 +51,6 @@ class ModlistInstaller:
         
         self.modlist_data = None
         self.categories = self.config_manager.load_categories()
-        
-        # Theme manager (centralized)
-        self.theme_manager = ThemeManager()
-        self.current_theme = self.theme_manager.current_theme
-        
-        # Create themed messagebox wrapper
-        self.messagebox = ThemedMessageBox(self.theme_manager)
         
         # Installation variables
         self.starsector_path = tk.StringVar()
@@ -137,8 +104,7 @@ class ModlistInstaller:
         info_frame, main_paned, self.header_text, self.mod_listbox = create_modlist_section(
             left_frame,
             self.on_mod_click,
-            lambda e: self.root.after(100, self.display_modlist_info),
-            self.theme_manager
+            lambda e: self.root.after(100, self.display_modlist_info)
         )
         
         # Track selected line
@@ -146,32 +112,34 @@ class ModlistInstaller:
         
         # Button panel
         button_callbacks = {
-            'install': self.start_installation,
+            'reset': self.reset_modlist_config,
             'pause': self.toggle_pause,
             'move_up': self.move_mod_up,
             'move_down': self.move_mod_down,
             'categories': self.open_manage_categories_dialog,
             'add': self.open_add_mod_dialog,
+            'edit': self.edit_selected_mod,
             'remove': self.remove_selected_mod,
             'import_csv': self.open_import_csv_dialog,
             'export_csv': self.open_export_csv_dialog
         }
         
         buttons = create_button_panel(main_paned, button_callbacks)
-        self.install_modlist_btn = buttons['install']
+        self.reset_btn = buttons['reset']
         self.pause_install_btn = buttons['pause']
         self.up_btn = buttons['up']
         self.down_btn = buttons['down']
         self.categories_btn = buttons['categories']
         self.add_btn = buttons['add']
+        self.edit_btn = buttons['edit']
         self.remove_btn = buttons['remove']
         self.import_btn = buttons['import']
         self.export_btn = buttons['export']
         
         # Bottom buttons (on left side)
-        button_frame, self.reset_btn, self.quit_btn = create_bottom_buttons(
+        button_frame, self.install_modlist_btn, self.quit_btn = create_bottom_buttons(
             left_frame,
-            self.reset_modlist_config,
+            self.start_installation,
             self.root.destroy
         )
         
@@ -268,17 +236,17 @@ class ModlistInstaller:
     def remove_selected_mod(self):
         """Remove the currently selected mod."""
         if self.selected_mod_line is None:
-            self.messagebox.showwarning("No Selection", "Please select a mod to remove")
+            custom_dialogs.showwarning("No Selection", "Please select a mod to remove")
             return
         
         line_text = self.mod_listbox.get(f"{self.selected_mod_line}.0", f"{self.selected_mod_line}.end")
         mod_name = self._extract_mod_name_from_line(line_text)
         
         if not mod_name:
-            self.messagebox.showwarning("Invalid Selection", "Please select a mod (not a category header)")
+            custom_dialogs.showwarning("Invalid Selection", "Please select a mod (not a category header)")
             return
         
-        if not self.messagebox.askyesno(
+        if not custom_dialogs.askyesno(
             "Confirm Removal",
             f"Are you sure you want to remove '{mod_name}' from the modlist?\n\nThis action cannot be undone."
         ):
@@ -294,7 +262,30 @@ class ModlistInstaller:
             self.display_modlist_info()
             self.selected_mod_line = None
         else:
-            self.messagebox.showerror("Error", f"Mod '{mod_name}' not found in configuration")
+            custom_dialogs.showerror("Error", f"Mod '{mod_name}' not found in configuration")
+    
+    def edit_selected_mod(self):
+        """Edit the currently selected mod."""
+        if self.selected_mod_line is None:
+            custom_dialogs.showwarning("No Selection", "Please select a mod to edit")
+            return
+        
+        line_text = self.mod_listbox.get(f"{self.selected_mod_line}.0", f"{self.selected_mod_line}.end")
+        mod_name = self._extract_mod_name_from_line(line_text)
+        
+        if not mod_name:
+            custom_dialogs.showwarning("Invalid Selection", "Please select a mod (not a category header)")
+            return
+        
+        # Find the mod in the modlist
+        current_mod = self._find_mod_by_name(mod_name)
+        if not current_mod:
+            custom_dialogs.showerror("Error", f"Mod '{mod_name}' not found in configuration")
+            return
+        
+        # Open edit dialog
+        from gui.dialogs import open_edit_mod_dialog
+        open_edit_mod_dialog(self.root, self, current_mod)
     
     # ============================================
     # Mod Reordering
@@ -416,7 +407,7 @@ class ModlistInstaller:
     
     def reset_modlist_config(self):
         """Reset the modlist configuration."""
-        response = self.messagebox.askyesno(
+        response = custom_dialogs.askyesno(
             "Confirm Reset",
             "Are you sure you want to reset the modlist configuration?\n\nThis will remove all mods and reset metadata to default values.\n\nThis action cannot be undone."
         )
@@ -428,22 +419,7 @@ class ModlistInstaller:
         self.modlist_data = self.config_manager.reset_to_default()
         self.display_modlist_info()
         self.log("Configuration reset to default.")
-        self.messagebox.showsuccess("Reset Complete", "Modlist configuration has been reset to default.")
-    
-    def configure_listbox_theme(self):
-        """Configure listbox colors based on theme."""
-        colors = self.theme_manager.get_colors()
-        
-        # Apply to both header and modlist
-        self.header_text.config(bg=colors['listbox_bg'], fg=colors['listbox_fg'])
-        self.mod_listbox.config(bg=colors['listbox_bg'], fg=colors['listbox_fg'])
-        
-        # Configure tags
-        self.mod_listbox.tag_configure('category', background=colors['category_bg'], 
-            foreground=colors['category_fg'], justify='center')
-        self.mod_listbox.tag_configure('mod', foreground=colors['listbox_fg'])
-        self.mod_listbox.tag_configure('selected', background=colors['selected_bg'], 
-            foreground=colors['selected_fg'])
+        custom_dialogs.showsuccess("Reset Complete", "Modlist configuration has been reset to default.")
     
     def display_modlist_info(self):
         """Display the modlist information."""
@@ -468,7 +444,11 @@ class ModlistInstaller:
         self.mod_listbox.config(state=tk.NORMAL)
         self.mod_listbox.delete(1.0, tk.END)
         
-        self.configure_listbox_theme()
+        # Configure category and selection tags (system colors for text)
+        self.mod_listbox.tag_configure('category', background='#34495e', 
+            foreground='#ffffff', justify='center')
+        self.mod_listbox.tag_configure('selected', background='#3498db', 
+            foreground='#ffffff')
         
         # Group mods by category
         mods = self.modlist_data.get('mods', [])
@@ -654,7 +634,7 @@ class ModlistInstaller:
                 self.update_path_status()
                 self.log(f"Starsector path set to: {folder}")
             else:
-                self.messagebox.showerror("Invalid Path", message)
+                custom_dialogs.showerror("Invalid Path", message)
     
     def update_path_status(self):
         """Update the path status label."""
@@ -693,7 +673,7 @@ class ModlistInstaller:
             return
         
         if not self.starsector_path.get():
-            response = self.messagebox.askyesno(
+            response = custom_dialogs.askyesno(
                 "Starsector Path Required",
                 "Starsector installation folder not set.\n\nWould you like to select it now?"
             )
@@ -706,7 +686,7 @@ class ModlistInstaller:
                         self.save_preferences()
                         self.log(f"Starsector path set: {folder}")
                     else:
-                        self.messagebox.showerror("Invalid Path", message)
+                        custom_dialogs.showerror("Invalid Path", message)
                         return
                 else:
                     return
@@ -717,22 +697,22 @@ class ModlistInstaller:
         
         is_valid, message = self.validate_starsector_path(str(starsector_dir))
         if not is_valid:
-            self.messagebox.showerror("Invalid Path", message)
+            custom_dialogs.showerror("Invalid Path", message)
             return
         
         has_space, space_msg = self.check_disk_space()
         if not has_space:
-            response = self.messagebox.askyesno("Low Disk Space", f"{space_msg}\n\nContinue anyway?")
+            response = custom_dialogs.askyesno("Low Disk Space", f"{space_msg}\n\nContinue anyway?")
             if not response:
                 return
         
         mods_dir = starsector_dir / "mods"
         
         if not self.modlist_data:
-            self.messagebox.showerror("Error", "No modlist configuration loaded")
+            custom_dialogs.showerror("Error", "No modlist configuration loaded")
             return
         
-        response = self.messagebox.askyesno(
+        response = custom_dialogs.askyesno(
             "Confirmation",
             f"Install {len(self.modlist_data['mods'])} mods into:\n{mods_dir}\n\nContinue?"
         )
@@ -749,22 +729,60 @@ class ModlistInstaller:
         thread = threading.Thread(target=self.install_mods, daemon=True)
         thread.start()
     
+    def install_specific_mods(self, mod_names):
+        """Install only specific mods by name.
+        
+        Args:
+            mod_names: List of mod names to install
+        """
+        # Filter the modlist to only include specified mods
+        mods_to_install = [mod for mod in self.modlist_data['mods'] if mod.get('name') in mod_names]
+        
+        if not mods_to_install:
+            custom_dialogs.showerror("Error", "No mods found to install")
+            return
+        
+        self.is_installing = True
+        self.is_paused = False
+        self.install_modlist_btn.config(state=tk.DISABLED, text="Installing...")
+        self.pause_install_btn.config(state=tk.NORMAL)
+        self.install_progress_bar['value'] = 0
+        
+        # Run installation in thread with filtered mods
+        def run_specific_installation():
+            self._install_mods_internal(mods_to_install)
+        
+        thread = threading.Thread(target=run_specific_installation, daemon=True)
+        thread.start()
+    
     def install_mods(self):
         """Install the mods from the modlist using parallel downloads and sequential extraction."""
+        self._install_mods_internal(self.modlist_data['mods'])
+    
+    def _install_mods_internal(self, mods_to_install):
+        """Internal method to install a list of mods.
+        
+        Args:
+            mods_to_install: List of mod dictionaries to install
+        """
         mods_dir = Path(self.starsector_path.get()) / "mods"
-        total_mods = len(self.modlist_data['mods'])
+        total_mods = len(mods_to_install)
 
-        self.log(f"Starting installation of {total_mods} mods...")
+        self.log(f"Starting installation of {total_mods} mod{'s' if total_mods > 1 else ''}...")
         self.log("=" * 50)
+        
+        # Reset failure tracking for this installation
+        self.mod_installer.reset_failure_tracking()
 
         # Step 1: parallel downloads
         download_results = []
+        gdrive_ignored = []
         max_workers = 3
         self.log(f"Starting parallel downloads (workers={max_workers})...")
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_mod = {
                 executor.submit(self.mod_installer.download_archive, mod): mod
-                for mod in self.modlist_data['mods']
+                for mod in mods_to_install
             }
             completed = 0
             for future in concurrent.futures.as_completed(future_to_mod):
@@ -777,7 +795,14 @@ class ModlistInstaller:
                         download_results.append((mod, temp_path, is_7z))
                         self.log(f"  ✓ Downloaded: {mod.get('name')}")
                     else:
-                        self.log(f"  ✗ Failed to download: {mod.get('name')}", error=True)
+                        # Check if it's a Google Drive failure
+                        url = mod.get('download_url', '')
+                        if 'drive.google.com' in url or 'drive.usercontent.google.com' in url:
+                            # Track all Google Drive failures for the recap
+                            gdrive_ignored.append(mod)
+                            self.log(f"  ✗ Failed to download (Google Drive): {mod.get('name')}", error=True)
+                        else:
+                            self.log(f"  ✗ Failed to download: {mod.get('name')}", error=True)
                 except Exception as e:
                     self.log(f"  ✗ Download future error for {mod.get('name')}: {e}", error=True)
                 completed += 1
@@ -826,7 +851,10 @@ class ModlistInstaller:
 
         # Final statistics
         self.install_progress_bar['value'] = 100
-        already_installed = total_mods - len(download_results)
+        
+        # Calculate statistics correctly
+        failed_downloads = total_mods - len(download_results) - len(gdrive_ignored)
+        already_installed = skipped  # skipped means already installed during extraction
         
         self.log("\n" + "=" * 50)
         self.log("Installation complete!")
@@ -837,31 +865,101 @@ class ModlistInstaller:
             status_parts.append(f"{extracted} newly installed")
         if already_installed > 0:
             status_parts.append(f"{already_installed} already present")
-        if skipped > 0:
-            status_parts.append(f"{skipped} skipped")
+        if failed_downloads > 0:
+            status_parts.append(f"{failed_downloads} failed")
+        if len(gdrive_ignored) > 0:
+            status_parts.append(f"{len(gdrive_ignored)} Google Drive failed")
         
         if status_parts:
             self.log(f"  {', '.join(status_parts)}")
+        
+        if len(gdrive_ignored) > 0:
+            self.log("\nGoogle Drive mods that failed to download:")
+            for mod in gdrive_ignored:
+                self.log(f"  - {mod.get('name')}", error=True)
+        
         self.log("\nYou can now start Starsector to enable the mods.")
 
         self.is_installing = False
         self.install_modlist_btn.config(state=tk.NORMAL, text="Install Modlist")
         self.pause_install_btn.config(state=tk.DISABLED)
 
-        # Build summary for messagebox
-        summary_msg = f"{total_mods} mod{'s' if total_mods > 1 else ''} ready"
-        detail_parts = []
-        if extracted > 0:
-            detail_parts.append(f"{extracted} installed")
-        if already_installed > 0:
-            detail_parts.append(f"{already_installed} already present")
-        if skipped > 0:
-            detail_parts.append(f"{skipped} skipped")
+        # Propose to fix Google Drive URLs at the end
+        if len(gdrive_ignored) > 0:
+            self._propose_fix_google_drive_urls(gdrive_ignored)
+        elif extracted > 0:
+            # Show completion only if mods were installed and no Google Drive issues
+            custom_dialogs.showinfo(
+                "Installation complete",
+                f"{extracted} mod(s) installed successfully!"
+            )
+
+    def _propose_fix_google_drive_urls(self, failed_mods):
+        """Propose to fix Google Drive URLs after installation is complete.
         
-        if detail_parts:
-            summary_msg = f"{', '.join(detail_parts)}"
+        Args:
+            failed_mods: List of mod dictionaries that failed to download
+        """
+        from gui.dialogs import fix_google_drive_url
         
-        self.messagebox.showinfo(
-            "Installation complete",
-            f"{summary_msg}\n\nLaunch Starsector to manage mod activation."
+        mod_names = [mod.get('name') for mod in failed_mods]
+        
+        self.log("\n" + "!" * 50)
+        self.log(f"Google Drive URL fix available for {len(failed_mods)} mod(s)", error=True)
+        self.log("!" * 50 + "\n")
+        
+        # Ask user if they want to fix the URLs
+        response = custom_dialogs.askyesno(
+            "Fix Google Drive URLs?",
+            f"{len(failed_mods)} mod(s) failed: {', '.join(mod_names)}\n\n"
+            f"Google Drive blocks large files for virus scan.\n"
+            f"If you trust the author(s), we can bypass this.\n\n"
+            f"Fix URLs in your configuration?"
         )
+        
+        if not response:
+            self.log("User declined to fix Google Drive URLs")
+            return
+        
+        # Fix the URLs
+        self.log("\nFixing Google Drive URLs...")
+        fixed_count = 0
+        fixed_mod_names = []
+        
+        for failed_mod in failed_mods:
+            original_url = failed_mod['download_url']
+            fixed_url = fix_google_drive_url(original_url)
+            
+            if fixed_url != original_url:
+                # Find and update the mod in the config
+                for mod in self.modlist_data.get('mods', []):
+                    if mod.get('name') == failed_mod['name'] and mod.get('download_url') == original_url:
+                        mod['download_url'] = fixed_url
+                        fixed_count += 1
+                        fixed_mod_names.append(mod['name'])
+                        self.log(f"  ✓ Fixed URL for: {failed_mod['name']}")
+                        break
+        
+        if fixed_count > 0:
+            self.save_modlist_config()
+            self.display_modlist_info()
+            self.log(f"\n{fixed_count} Google Drive URL(s) have been fixed and saved\n")
+            
+            # Ask if user wants to retry installation immediately
+            retry_response = custom_dialogs.askyesno(
+                "Retry Installation?",
+                f"{fixed_count} URL(s) fixed.\n\nRetry installing now?\n(Only fixed mods will download)"
+            )
+            
+            if retry_response:
+                self.log(f"User chose to retry installation for: {', '.join(fixed_mod_names)}\n")
+                # Trigger installation of only the fixed mods
+                self.install_specific_mods(fixed_mod_names)
+            else:
+                self.log("URLs fixed. User will retry installation manually later")
+        else:
+            custom_dialogs.showwarning(
+                "No Changes",
+                "No URLs could be automatically fixed."
+            )
+

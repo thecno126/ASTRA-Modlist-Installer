@@ -7,7 +7,38 @@ import tkinter as tk
 from tkinter import ttk, filedialog, simpledialog
 import csv
 import threading
+import re
 from pathlib import Path
+from gui import custom_dialogs
+
+
+def fix_google_drive_url(url):
+    """Fix Google Drive URL if it has issues with large file downloads.
+    
+    Converts drive.google.com/file/d/ID/view URLs to drive.usercontent.google.com format
+    and adds the confirm parameter to bypass the virus scan warning for large files.
+    
+    Args:
+        url: The original Google Drive URL
+        
+    Returns:
+        The fixed URL if it's a Google Drive link, otherwise the original URL
+    """
+    if 'drive.google.com' not in url:
+        return url
+    
+    # Extract file ID from various Google Drive URL formats
+    file_id_match = re.search(r'/d/([a-zA-Z0-9_-]+)', url)
+    if not file_id_match:
+        file_id_match = re.search(r'[?&]id=([a-zA-Z0-9_-]+)', url)
+    
+    if file_id_match:
+        file_id = file_id_match.group(1)
+        # Create the direct download URL with confirm parameter
+        fixed_url = f"https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t"
+        return fixed_url
+    
+    return url
 
 
 def open_add_mod_dialog(parent, app):
@@ -39,12 +70,7 @@ def open_add_mod_dialog(parent, app):
         name = name_var.get().strip()
         url = url_var.get().strip()
         if not name or not url:
-            app.messagebox.showerror("Error", "Name and URL are required")
-            return
-        app.log(f"Validating URL: {url}...")
-        valid = app.validate_url(url)
-        if not valid:
-            app.messagebox.showerror("Error", f"URL is not reachable: {url}")
+            custom_dialogs.showerror("Error", "Name and URL are required")
             return
 
         mod = {"name": name, "download_url": url}
@@ -56,13 +82,70 @@ def open_add_mod_dialog(parent, app):
             mod["category"] = "Uncategorized"
 
         app.add_mod_to_config(mod)
-        app.messagebox.showsuccess("Success", f"Mod '{name}' has been added to the modlist")
+        custom_dialogs.showsuccess("Success", f"Mod '{name}' has been added to the modlist")
         dlg.destroy()
 
     btn_frame = tk.Frame(dlg)
     btn_frame.grid(row=4, column=0, columnspan=2, pady=12)
     tk.Button(btn_frame, text="Cancel", command=dlg.destroy, width=10).pack(side=tk.RIGHT, padx=6)
     tk.Button(btn_frame, text="Add", command=submit, bg="#2ecc71", fg="black", width=10).pack(side=tk.RIGHT)
+
+
+def open_edit_mod_dialog(parent, app, current_mod):
+    """Open a modal dialog to edit an existing mod."""
+    dlg = tk.Toplevel(parent)
+    dlg.title(f"Edit Mod: {current_mod['name']}")
+    dlg.geometry("500x250")
+    dlg.resizable(False, False)
+
+    name_var = tk.StringVar(value=current_mod['name'])
+    url_var = tk.StringVar(value=current_mod['download_url'])
+    version_var = tk.StringVar(value=current_mod.get('version', ''))
+    category_var = tk.StringVar(value=current_mod.get('category', 'Uncategorized'))
+
+    tk.Label(dlg, text="Mod Name:").grid(row=0, column=0, sticky="e", padx=8, pady=(12, 6))
+    tk.Entry(dlg, textvariable=name_var, width=45).grid(row=0, column=1, padx=8, pady=(12, 6))
+
+    tk.Label(dlg, text="Download URL:").grid(row=1, column=0, sticky="e", padx=8, pady=6)
+    tk.Entry(dlg, textvariable=url_var, width=45).grid(row=1, column=1, padx=8, pady=6)
+
+    tk.Label(dlg, text="Version (optional):").grid(row=2, column=0, sticky="e", padx=8, pady=6)
+    tk.Entry(dlg, textvariable=version_var, width=45).grid(row=2, column=1, padx=8, pady=6)
+
+    tk.Label(dlg, text="Category:").grid(row=3, column=0, sticky="e", padx=8, pady=6)
+    category_combo = ttk.Combobox(dlg, textvariable=category_var, width=42, values=app.categories)
+    category_combo.grid(row=3, column=1, padx=8, pady=6)
+
+    def submit():
+        name = name_var.get().strip()
+        url = url_var.get().strip()
+        if not name or not url:
+            custom_dialogs.showerror("Error", "Name and URL are required")
+            return
+
+        # Update the mod in the modlist
+        mods = app.modlist_data.get('mods', [])
+        for mod in mods:
+            if mod['name'] == current_mod['name']:
+                mod['name'] = name
+                mod['download_url'] = url
+                mod['category'] = category_var.get().strip() or "Uncategorized"
+                if version_var.get().strip():
+                    mod['version'] = version_var.get().strip()
+                elif 'version' in mod:
+                    del mod['version']
+                break
+        
+        app.save_modlist_config()
+        app.display_modlist_info()
+        app.log(f"Updated mod: {name}")
+        custom_dialogs.showsuccess("Success", f"Mod '{name}' has been updated")
+        dlg.destroy()
+
+    btn_frame = tk.Frame(dlg)
+    btn_frame.grid(row=4, column=0, columnspan=2, pady=12)
+    tk.Button(btn_frame, text="Cancel", command=dlg.destroy, width=10).pack(side=tk.RIGHT, padx=6)
+    tk.Button(btn_frame, text="Save", command=submit, bg="#3498db", fg="white", width=10).pack(side=tk.RIGHT)
 
 
 def open_manage_categories_dialog(parent, app):
@@ -143,12 +226,12 @@ def open_manage_categories_dialog(parent, app):
                 app.config_manager.save_categories(app.categories)
                 app.log(f"Added category: {new_cat}")
             else:
-                app.messagebox.showwarning("Duplicate", f"Category '{new_cat}' already exists", parent=dlg)
+                custom_dialogs.showwarning("Duplicate", f"Category '{new_cat}' already exists", parent=dlg)
     
     def rename_category():
         selection = cat_listbox.curselection()
         if not selection:
-            app.messagebox.showwarning("No Selection", "Please select a category to rename", parent=dlg)
+            custom_dialogs.showwarning("No Selection", "Please select a category to rename", parent=dlg)
             return
         
         idx = selection[0]
@@ -158,7 +241,7 @@ def open_manage_categories_dialog(parent, app):
         if new_name and new_name.strip() and new_name.strip() != old_name:
             new_name = new_name.strip()
             if new_name in app.categories:
-                app.messagebox.showwarning("Duplicate", f"Category '{new_name}' already exists", parent=dlg)
+                custom_dialogs.showwarning("Duplicate", f"Category '{new_name}' already exists", parent=dlg)
                 return
             
             # Update category in all mods
@@ -179,7 +262,7 @@ def open_manage_categories_dialog(parent, app):
     def delete_category():
         selection = cat_listbox.curselection()
         if not selection:
-            app.messagebox.showwarning("No Selection", "Please select a category to delete", parent=dlg)
+            custom_dialogs.showwarning("No Selection", "Please select a category to delete", parent=dlg)
             return
         
         idx = selection[0]
@@ -189,7 +272,7 @@ def open_manage_categories_dialog(parent, app):
         in_use = any(mod.get('category') == cat_name for mod in app.modlist_data.get('mods', []))
         
         if in_use:
-            response = app.messagebox.askyesno("Category in Use", 
+            response = custom_dialogs.askyesno("Category in Use", 
                 f"Category '{cat_name}' is used by some mods.\nMods will be moved to 'Uncategorized'.\nContinue?",
                 parent=dlg)
             if not response:
@@ -281,11 +364,11 @@ def open_export_csv_dialog(parent, app):
                 })
         
         app.log(f"Exported {len(app.modlist_data.get('mods', []))} mods to {csv_file}")
-        app.messagebox.showsuccess("Export Complete", f"Modlist exported successfully to:\n{csv_file}")
+        custom_dialogs.showsuccess("Export Complete", f"Modlist exported successfully to:\n{csv_file}")
     
     except Exception as e:
         app.log(f"Error exporting CSV: {e}", error=True)
-        app.messagebox.showerror("Export Error", f"Failed to export CSV:\n{str(e)}")
+        custom_dialogs.showerror("Export Error", f"Failed to export CSV:\n{str(e)}")
 
 
 def _import_csv_file(csv_path: str, app):
@@ -420,16 +503,16 @@ def _import_csv_file(csv_path: str, app):
             if metadata_updated:
                 summary += " Modlist metadata updated."
             app.log(summary)
-            app.root.after(0, lambda: app.messagebox.showsuccess("Import complete", summary))
+            app.root.after(0, lambda: custom_dialogs.showsuccess("Import complete", summary))
         else:
             summary = "Modlist metadata updated."
             app.log(summary)
-            app.root.after(0, lambda: app.messagebox.showsuccess("Import complete", summary))
+            app.root.after(0, lambda: custom_dialogs.showsuccess("Import complete", summary))
         
         app.root.after(0, lambda: _set_ui_enabled(app, True))
     except Exception as e:
         app.log(f"  ✗ Error importing CSV: {e}", error=True)
-        app.root.after(0, lambda: app.messagebox.showerror("Import failed", f"Error during CSV import: {e}"))
+        app.root.after(0, lambda: custom_dialogs.showerror("Import failed", f"Error during CSV import: {e}"))
         app.root.after(0, lambda: _set_ui_enabled(app, True))
 
 

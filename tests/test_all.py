@@ -433,7 +433,8 @@ class TestInstallationScenarios:
         for mod in mods_to_install:
             # Simulate archive structure (single root folder matching mod name)
             mock_members = [f"{mod['name']}/mod_info.json", f"{mod['name']}/data/config.json"]
-            if installer._is_already_installed(mock_members, mods_dir):
+            # Use _is_already_installed_simple instead
+            if installer._is_already_installed_simple(mock_members, mods_dir):
                 already_installed.append(mod['name'])
             else:
                 needs_download.append(mod)
@@ -601,107 +602,7 @@ class TestPerformance:
 
 
 # ============================================================================
-# Theme Tests
+# Theme Tests (removed - using system theme now)
 # ============================================================================
+# ThemeManager has been removed in favor of system theme integration
 
-def test_theme_detection():
-    """Test system theme detection."""
-    from src.utils.theme import detect_system_theme
-    
-    theme = detect_system_theme()
-    assert theme in ['light', 'dark']
-
-
-def test_theme_manager_initialization():
-    """Test ThemeManager initializes with valid theme."""
-    from src.utils.theme import ThemeManager
-    
-    tm = ThemeManager()
-    assert tm.current_theme in ['light', 'dark']
-    assert isinstance(tm.colors, dict)
-    assert 'light' in tm.colors
-    assert 'dark' in tm.colors
-
-
-def test_theme_manager_get_colors():
-    """Test ThemeManager returns correct color scheme."""
-    from src.utils.theme import ThemeManager
-    
-    tm = ThemeManager()
-    colors = tm.get_colors()
-    
-    # Check all required color keys exist
-    required_keys = [
-        'bg', 'fg', 'listbox_bg', 'listbox_fg',
-        'category_bg', 'category_fg', 'selected_bg', 'selected_fg',
-        'header_bg', 'header_fg'
-    ]
-    
-    for key in required_keys:
-        assert key in colors, f"Missing color key: {key}"
-        assert isinstance(colors[key], str)
-        assert colors[key].startswith('#'), f"Color {key} should be hex format"
-
-
-def test_theme_manager_get_specific_color():
-    """Test getting specific color from theme."""
-    from src.utils.theme import ThemeManager
-    
-    tm = ThemeManager()
-    
-    # Test valid color key
-    bg_color = tm.get_color('bg')
-    assert bg_color.startswith('#')
-    
-    # Test invalid key returns default
-    invalid_color = tm.get_color('nonexistent_key')
-    assert invalid_color == '#ffffff'
-
-
-def test_theme_manager_dark_mode_check():
-    """Test dark mode detection."""
-    from src.utils.theme import ThemeManager
-    
-    tm = ThemeManager()
-    is_dark = tm.is_dark_mode()
-    
-    assert isinstance(is_dark, bool)
-    assert is_dark == (tm.current_theme == 'dark')
-
-
-def test_theme_colors_consistency():
-    """Test that light and dark themes have consistent structure."""
-    from src.utils.theme import ThemeManager
-    
-    tm = ThemeManager()
-    
-    light_keys = set(tm.colors['light'].keys())
-    dark_keys = set(tm.colors['dark'].keys())
-    
-    # Both themes should have identical keys
-    assert light_keys == dark_keys
-    
-    # Check no color is empty
-    for theme in ['light', 'dark']:
-        for key, value in tm.colors[theme].items():
-            assert value, f"Empty color value for {theme}.{key}"
-
-
-def test_theme_manager_forced_theme(monkeypatch):
-    """Test ThemeManager with forced theme detection."""
-    from src.utils.theme import ThemeManager
-    
-    # Mock detect_system_theme to return 'dark'
-    def mock_dark_theme():
-        return 'dark'
-    
-    monkeypatch.setattr('src.utils.theme.detect_system_theme', mock_dark_theme)
-    
-    tm = ThemeManager()
-    assert tm.current_theme == 'dark'
-    assert tm.is_dark_mode() is True
-    
-    # Check dark mode has different colors than light
-    dark_bg = tm.colors['dark']['bg']
-    light_bg = tm.colors['light']['bg']
-    assert dark_bg != light_bg
