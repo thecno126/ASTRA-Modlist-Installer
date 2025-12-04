@@ -1,7 +1,7 @@
 # ASTRA Modlist Installer
 
-![Tests](https://github.com/VOTRE_USERNAME/ASTRA-Modlist-Installer/workflows/Tests/badge.svg)
-![Build](https://github.com/VOTRE_USERNAME/ASTRA-Modlist-Installer/workflows/Build%20and%20Release/badge.svg)
+![Tests](https://github.com/thecno126/ASTRA-Modlist-Installer/workflows/Tests/badge.svg)
+![Build](https://github.com/thecno126/ASTRA-Modlist-Installer/workflows/Build%20and%20Release/badge.svg)
 
 Outil pour gérer et installer des modlists Starsector avec téléchargements parallèles et interface graphique intuitive.
 
