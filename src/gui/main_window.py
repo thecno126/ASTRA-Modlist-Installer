@@ -919,8 +919,9 @@ class ModlistInstaller:
         self.mod_installer.reset_failure_tracking()
         
         # Apply Google Drive URL fix automatically if trust is checked
+        from gui.dialogs import fix_google_drive_url
+        
         if self.trust_google_drive.get():
-            from gui.dialogs import fix_google_drive_url
             fixed_mods = []
             for mod in mods_to_install:
                 url = mod.get('download_url', '')
@@ -937,7 +938,7 @@ class ModlistInstaller:
                     fixed_mods.append(mod)
             mods_to_download = fixed_mods
         else:
-            # If not trusted, attempt mods as-is (failures will be caught later)
+            # If not trusted, attempt with original URLs (fix will be offered after failures)
             mods_to_download = mods_to_install
 
         # Step 1: parallel downloads
@@ -1000,6 +1001,7 @@ class ModlistInstaller:
         self.log("Starting sequential extraction...")
         extracted = 0
         skipped = 0
+        extraction_failures = []  # Track mods that failed extraction
         
         if not download_results:
             self.log("All mods were skipped (already installed or failed to download)", info=True)
@@ -1027,21 +1029,33 @@ class ModlistInstaller:
                     extracted += 1
                 else:
                     self.log(f"  ✗ Failed to install {mod['name']}", error=True)
+                    extraction_failures.append(mod)
                     skipped += 1
             except Exception as e:
                 self.log(f"  ✗ Unexpected extraction error for {mod.get('name')}: {e}", error=True)
+                extraction_failures.append(mod)
                 skipped += 1
             # progress: second half (based on total attempted, not total in list)
             progress = 50 + ((extracted + skipped) / len(download_results)) * 50
             self.install_progress_bar['value'] = progress
             self.root.update_idletasks()
-
+        
+        # Identify Google Drive mods that failed extraction (likely HTML instead of ZIP)
+        gdrive_extraction_failures = [
+            mod for mod in extraction_failures
+            if 'drive.google.com' in mod.get('download_url', '') 
+            or 'drive.usercontent.google.com' in mod.get('download_url', '')
+        ]
+        
+        # Combine all Google Drive issues
+        all_gdrive_issues = gdrive_ignored + gdrive_extraction_failures
+        
         # Final statistics
         self.install_progress_bar['value'] = 100
         
         # Calculate statistics correctly
-        failed_downloads = total_mods - len(download_results) - len(all_gdrive_issues)
-        already_installed = skipped  # skipped means already installed during extraction
+        failed_downloads = total_mods - len(download_results) - len(gdrive_ignored)
+        already_installed = skipped - len(gdrive_extraction_failures)  # Exclude extraction failures from "already installed"
         
         self.log("\n" + "=" * 50)
         self.log("Installation complete!")
@@ -1061,7 +1075,7 @@ class ModlistInstaller:
             self.log(f"  {', '.join(status_parts)}")
         
         if len(all_gdrive_issues) > 0:
-            self.log("\nGoogle Drive mods not downloaded:")
+            self.log("\nGoogle Drive mods not installed:")
             for mod in all_gdrive_issues:
                 self.log(f"  - {mod.get('name')}", error=True)
         
