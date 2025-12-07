@@ -219,7 +219,6 @@ class ModInstaller:
             log_callback: Function to call for logging messages
         """
         self.log = log_callback
-        self.download_failures = {}  # Track failed downloads: {mod_name: {'url': url, 'attempts': count}}
     
     def _extract_version_from_text(self, content):
         """
@@ -319,12 +318,18 @@ class ModInstaller:
             return False
 
     def download_archive(self, mod):
-        """Download mod archive to a temporary file. Returns (path, is_7z) or (None, False) on error."""
+        """Download mod archive to a temporary file. 
+        Returns (path, is_7z) on success, (None, False) on network error, or ('GDRIVE_HTML', False) if HTML detected."""
         try:
             response = requests.get(mod['download_url'], stream=True, timeout=REQUEST_TIMEOUT)
             response.raise_for_status()
             url_lower = mod['download_url'].lower()
             content_type = response.headers.get('Content-Type', '').lower()
+            
+            # Check if we received HTML instead of a file (Google Drive virus scan page)
+            if 'text/html' in content_type and ('drive.google.com' in url_lower or 'drive.usercontent.google.com' in url_lower):
+                return 'GDRIVE_HTML', False
+            
             is_7z = '.7z' in url_lower or '7z' in content_type
             temp_fd = None
             suffix = '.7z' if is_7z else '.zip'
@@ -337,8 +342,6 @@ class ModInstaller:
             return temp_path, is_7z
         except requests.exceptions.RequestException as e:
             self.log(f"  ✗ Download error: {e}", error=True)
-            # Track failure for Google Drive URLs
-            self._track_download_failure(mod)
             try:
                 if temp_fd is not None:
                     os.close(temp_fd)
@@ -347,34 +350,12 @@ class ModInstaller:
             return None, False
         except Exception as e:
             self.log(f"  ✗ Unexpected error during download: {e}", error=True)
-            self._track_download_failure(mod)
             try:
                 if temp_fd is not None:
                     os.close(temp_fd)
             except Exception:
                 pass
             return None, False
-    
-    def _track_download_failure(self, mod):
-        """Track download failures for Google Drive URLs."""
-        url = mod['download_url']
-        if 'drive.google.com' in url or 'drive.usercontent.google.com' in url:
-            mod_name = mod.get('name', 'Unknown')
-            if mod_name not in self.download_failures:
-                self.download_failures[mod_name] = {'url': url, 'attempts': 0}
-            self.download_failures[mod_name]['attempts'] += 1
-    
-    def get_failed_google_drive_mods(self):
-        """Get list of Google Drive mods that failed after multiple attempts."""
-        failed = []
-        for mod_name, info in self.download_failures.items():
-            if info['attempts'] >= 3:
-                failed.append({'name': mod_name, 'url': info['url']})
-        return failed
-    
-    def reset_failure_tracking(self):
-        """Reset the download failure tracking."""
-        self.download_failures = {}
     
     def extract_archive(self, temp_file, mods_dir, is_7z):
         """

@@ -914,43 +914,17 @@ class ModlistInstaller:
 
         self.log(f"Starting installation of {total_mods} mod{'s' if total_mods > 1 else ''}...")
         self.log("=" * 50)
-        
-        # Reset failure tracking for this installation
-        self.mod_installer.reset_failure_tracking()
-        
-        # Apply Google Drive URL fix automatically if trust is checked
-        from gui.dialogs import fix_google_drive_url
-        
-        if self.trust_google_drive.get():
-            fixed_mods = []
-            for mod in mods_to_install:
-                url = mod.get('download_url', '')
-                if 'drive.google.com' in url or 'drive.usercontent.google.com' in url:
-                    fixed_url = fix_google_drive_url(url)
-                    if fixed_url != url:
-                        mod_copy = mod.copy()
-                        mod_copy['download_url'] = fixed_url
-                        fixed_mods.append(mod_copy)
-                        self.log(f"  🔧 Auto-fixed Google Drive URL: {mod.get('name')}", info=True)
-                    else:
-                        fixed_mods.append(mod)
-                else:
-                    fixed_mods.append(mod)
-            mods_to_download = fixed_mods
-        else:
-            # If not trusted, attempt with original URLs (fix will be offered after failures)
-            mods_to_download = mods_to_install
 
-        # Step 1: parallel downloads
+        # Step 1: parallel downloads (use original URLs first)
         download_results = []
-        gdrive_ignored = []
+        gdrive_failed = []
         max_workers = 3
         self.log(f"Starting parallel downloads (workers={max_workers})...")
         self.current_executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
         try:
             future_to_mod = {
                 self.current_executor.submit(self.mod_installer.download_archive, mod): mod
-                for mod in mods_to_download
+                for mod in mods_to_install
             }
             completed = 0
             for future in concurrent.futures.as_completed(future_to_mod):
@@ -964,22 +938,20 @@ class ModlistInstaller:
                 mod = future_to_mod[future]
                 try:
                     temp_path, is_7z = future.result()
-                    if temp_path:
+                    if temp_path == 'GDRIVE_HTML':
+                        # Google Drive returned HTML (virus scan warning) - needs URL fix
+                        gdrive_failed.append(mod)
+                        self.log(f"  ⚠️  Google Drive returned HTML (likely virus scan warning): {mod.get('name')}", error=True)
+                    elif temp_path:
                         download_results.append((mod, temp_path, is_7z))
                         self.log(f"  ✓ Downloaded: {mod.get('name')}")
                     else:
-                        # Check if it's a Google Drive failure
-                        url = mod.get('download_url', '')
-                        if 'drive.google.com' in url or 'drive.usercontent.google.com' in url:
-                            # Track all Google Drive failures for the recap
-                            gdrive_ignored.append(mod)
-                            self.log(f"  ✗ Failed to download (Google Drive): {mod.get('name')}", error=True)
-                        else:
-                            self.log(f"  ✗ Failed to download: {mod.get('name')}", error=True)
+                        # Network error or other failure
+                        self.log(f"  ✗ Failed to download: {mod.get('name')}", error=True)
                 except Exception as e:
                     self.log(f"  ✗ Download future error for {mod.get('name')}: {e}", error=True)
                 completed += 1
-                self.install_progress_bar['value'] = (completed / len(mods_to_download)) * 50  # downloads = first half
+                self.install_progress_bar['value'] = (completed / len(mods_to_install)) * 50  # downloads = first half
                 self.root.update_idletasks()
         finally:
             # Clean up executor
@@ -994,8 +966,49 @@ class ModlistInstaller:
             self.pause_install_btn.config(state=tk.DISABLED)
             return
         
-        # Track Google Drive failures for recap
-        all_gdrive_issues = gdrive_ignored
+        # Apply Google Drive fix if trust is checked and there are failures
+        if self.trust_google_drive.get() and gdrive_failed:
+            self.log(f"\nApplying Google Drive URL fix for {len(gdrive_failed)} failed mod(s)...", info=True)
+            fixed_mods_to_download = []
+            for mod in gdrive_failed:
+                original_url = mod['download_url']
+                fixed_url = fix_google_drive_url(original_url)
+                if fixed_url != original_url:
+                    mod_copy = mod.copy()
+                    mod_copy['download_url'] = fixed_url
+                    fixed_mods_to_download.append(mod_copy)
+                    self.log(f"  🔧 Auto-fixed Google Drive URL: {mod.get('name')}", info=True)
+            
+            # Retry downloading with fixed URLs
+            if fixed_mods_to_download:
+                self.log(f"Retrying download for {len(fixed_mods_to_download)} Google Drive mod(s)...")
+                self.current_executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+                try:
+                    future_to_mod = {
+                        self.current_executor.submit(self.mod_installer.download_archive, mod): mod
+                        for mod in fixed_mods_to_download
+                    }
+                    for future in concurrent.futures.as_completed(future_to_mod):
+                        if not self.is_installing:
+                            break
+                        mod = future_to_mod[future]
+                        try:
+                            temp_path, is_7z = future.result()
+                            if temp_path == 'GDRIVE_HTML':
+                                self.log(f"  ✗ Still blocked by Google Drive: {mod.get('name')}", error=True)
+                            elif temp_path:
+                                download_results.append((mod, temp_path, is_7z))
+                                self.log(f"  ✓ Downloaded (fixed URL): {mod.get('name')}")
+                                # Remove from failed list
+                                gdrive_failed = [m for m in gdrive_failed if m.get('name') != mod.get('name')]
+                            else:
+                                self.log(f"  ✗ Still failed (fixed URL): {mod.get('name')}", error=True)
+                        except Exception as e:
+                            self.log(f"  ✗ Download error (fixed URL) for {mod.get('name')}: {e}", error=True)
+                finally:
+                    if self.current_executor:
+                        self.current_executor.shutdown(wait=True)
+                        self.current_executor = None
 
         # Step 2: sequential extraction
         self.log("Starting sequential extraction...")
@@ -1047,14 +1060,14 @@ class ModlistInstaller:
             or 'drive.usercontent.google.com' in mod.get('download_url', '')
         ]
         
-        # Combine all Google Drive issues
-        all_gdrive_issues = gdrive_ignored + gdrive_extraction_failures
+        # Combine all Google Drive issues (download failures + extraction failures)
+        all_gdrive_issues = gdrive_failed + gdrive_extraction_failures
         
         # Final statistics
         self.install_progress_bar['value'] = 100
         
         # Calculate statistics correctly
-        failed_downloads = total_mods - len(download_results) - len(gdrive_ignored)
+        failed_downloads = total_mods - len(download_results) - len(gdrive_failed)
         already_installed = skipped - len(gdrive_extraction_failures)  # Exclude extraction failures from "already installed"
         
         self.log("\n" + "=" * 50)
@@ -1085,15 +1098,9 @@ class ModlistInstaller:
         self.install_modlist_btn.config(state=tk.NORMAL, text="Install Modlist")
         self.pause_install_btn.config(state=tk.DISABLED)
 
-        # Propose to fix Google Drive URLs at the end
-        if len(all_gdrive_issues) > 0:
+        # Propose to fix Google Drive URLs only if not auto-fixed or still have failures
+        if len(all_gdrive_issues) > 0 and not self.trust_google_drive.get():
             self._propose_fix_google_drive_urls(all_gdrive_issues)
-        elif extracted > 0:
-            # Show completion only if mods were installed and no Google Drive issues
-            custom_dialogs.showinfo(
-                "Installation complete",
-                f"{extracted} mod(s) installed successfully!"
-            )
 
     def _propose_fix_google_drive_urls(self, failed_mods):
         """Propose to fix Google Drive URLs after installation is complete.
@@ -1101,70 +1108,101 @@ class ModlistInstaller:
         Args:
             failed_mods: List of mod dictionaries that failed to download
         """
-        from gui.dialogs import fix_google_drive_url
+        # Create custom dialog matching pre-installation check style
+        result = {'action': None}
         
-        mod_names = [mod.get('name') for mod in failed_mods]
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Google Drive Fix Available")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.resizable(False, False)
         
-        self.log("\n" + "!" * 50)
-        self.log(f"Google Drive URL fix available for {len(failed_mods)} mod(s)", error=True)
-        self.log("!" * 50 + "\n")
+        # Main frame
+        main_frame = tk.Frame(dialog)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        # Show trust warning if not already trusted
-        if not self.trust_google_drive.get():
-            response = custom_dialogs.askyesno(
-                "Apply Google Drive URL Fix?",
-                f"{len(failed_mods)} Google Drive mod(s) failed to download:\n{', '.join(mod_names)}\n\n"
-                f"A URL fix can bypass Google's virus scan warning for large files.\n"
-                f"Only proceed if you trust the mod author(s).\n\n"
-                f"Apply the fix and retry downloading these mods?"
-            )
-            
-            if not response:
-                self.log("User declined to apply Google Drive URL fix")
-                return
-            
-            # User accepted fix for this time (don't persist trust checkbox)
-            self.log("User confirmed Google Drive URL fix")
-        else:
-            self.log("Google Drive trust already enabled, applying fix...")
+        # Failed Google Drive mods section
+        gdrive_frame = tk.Frame(main_frame)
+        gdrive_frame.pack(fill=tk.X, pady=(0, 10))
         
-        # Fix the URLs
-        self.log("\nApplying Google Drive URL fix (temporary, config unchanged)...")
-        fixed_count = 0
-        fixed_mod_names = []
-        fixed_mods_list = []  # Temporary list with fixed URLs for installation
+        tk.Label(gdrive_frame, text=f"Failed to download {len(failed_mods)} Google Drive mod(s):", 
+                font=("Arial", 10, "bold"), fg="#dc2626").pack(anchor=tk.W, pady=(0, 8))
+        
+        # List Google Drive mods
+        gdrive_list_frame = tk.Frame(gdrive_frame, relief=tk.SUNKEN, bd=1, bg="#ffe6e6")
+        gdrive_list_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        gdrive_text = tk.Text(gdrive_list_frame, height=min(5, len(failed_mods)), width=60,
+                             font=("Courier", 9), wrap=tk.WORD, bg="#ffe6e6", relief=tk.FLAT)
+        for mod in failed_mods:
+            gdrive_text.insert(tk.END, f"  • {mod.get('name', 'Unknown')}\n")
+        gdrive_text.config(state=tk.DISABLED)
+        gdrive_text.pack(padx=5, pady=5)
+        
+        # Warning message
+        warning_frame = tk.Frame(gdrive_frame)
+        warning_frame.pack(fill=tk.X, pady=(0, 0))
+        
+        warning_text = tk.Label(warning_frame, 
+            text="The URL fix bypasses Google's virus scan warning for large files.\n⚠️  Only proceed if you trust these mod sources.",
+            font=("Arial", 9), fg="#666", wraplength=500, justify=tk.LEFT)
+        warning_text.pack(anchor=tk.W)
+        
+        # Buttons frame
+        button_frame = tk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(20, 0))
+        
+        def on_apply():
+            result['action'] = 'apply'
+            dialog.destroy()
+        
+        def on_cancel():
+            result['action'] = 'cancel'
+            dialog.destroy()
+        
+        # Center the buttons
+        button_container = tk.Frame(button_frame)
+        button_container.pack(anchor=tk.CENTER)
+        
+        tk.Button(button_container, text="Apply Fix & Retry", command=on_apply,
+                 font=("Arial", 10), cursor="hand2", padx=20, pady=8).pack(side=tk.LEFT, padx=(0, 8))
+        
+        tk.Button(button_container, text="Cancel", command=on_cancel,
+                 font=("Arial", 10), cursor="hand2", padx=20, pady=8).pack(side=tk.LEFT)
+        
+        # Keyboard bindings
+        dialog.bind("<Escape>", lambda e: on_cancel())
+        dialog.bind("<Return>", lambda e: on_apply())
+        
+        # Center on parent
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() - dialog.winfo_width()) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - dialog.winfo_height()) // 2
+        dialog.geometry(f"+{x}+{y}")
+        
+        dialog.wait_window()
+        
+        if result['action'] != 'apply':
+            self.log("User declined Google Drive URL fix", info=True)
+            return
+        
+        # Fix and retry immediately
+        self.log("Applying Google Drive URL fix...", info=True)
+        fixed_mods_list = []
         
         for failed_mod in failed_mods:
             original_url = failed_mod['download_url']
             fixed_url = fix_google_drive_url(original_url)
             
             if fixed_url != original_url:
-                # Create a temporary copy with fixed URL (don't modify original config)
                 mod_copy = failed_mod.copy()
                 mod_copy['download_url'] = fixed_url
                 fixed_mods_list.append(mod_copy)
-                fixed_count += 1
-                fixed_mod_names.append(failed_mod['name'])
-                self.log(f"  ✓ Fixed URL for: {failed_mod['name']}")
+                self.log(f"  ✓ {failed_mod['name']}", info=True)
         
-        if fixed_count > 0:
-            self.log(f"\n{fixed_count} Google Drive URL(s) fixed temporarily (config file unchanged)\n")
-            
-            # Ask if user wants to retry installation immediately
-            retry_response = custom_dialogs.askyesno(
-                "Retry Installation?",
-                f"{fixed_count} URL(s) fixed.\n\nRetry installing now?\n(Only fixed mods will download)"
-            )
-            
-            if retry_response:
-                self.log(f"User chose to retry installation for: {', '.join(fixed_mod_names)}\n")
-                # Trigger installation of only the fixed mods (with temporary fixed URLs)
-                self.install_specific_mods(fixed_mod_names, temp_mods=fixed_mods_list)
-            else:
-                self.log("URLs fixed temporarily. User will retry installation manually later")
+        if fixed_mods_list:
+            # Trigger installation directly (no "Retry Installation?" dialog)
+            self.install_specific_mods([m['name'] for m in fixed_mods_list], temp_mods=fixed_mods_list)
         else:
-            custom_dialogs.showwarning(
-                "No Changes",
-                "No URLs could be automatically fixed."
-            )
+            self.log("No URLs could be fixed", error=True)
 
