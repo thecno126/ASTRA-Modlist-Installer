@@ -217,6 +217,10 @@ pip install -r requirements.txt
    - ZIP and 7z support with integrity validation
    - Smart version comparison - updates mods when newer versions available
    - Duplicate and already-installed mod detection
+3. **Manage compatibility:** Use **TriOS** to manage mod versions and compatibility
+   - ASTRA Modlist Installer downloads and activates mods automatically
+   - Mods with incorrect game versions are installed but may need adjustment
+   - Use TriOS mod manager to handle version conflicts and enable/disable mods
 ## 📝 Notes
 
 - **Smart duplicate prevention** - Mods are checked by name and URL
@@ -228,6 +232,7 @@ pip install -r requirements.txt
 - **Silent saves** - No log spam from automatic saves (only Ctrl+S logs)
 - **Error recovery** - Retry logic with exponential backoff handles transient failures
 - **Skip duplicates** - Already-installed mods detected and skipped automatically
+- **TriOS integration** - Use TriOS mod manager for version compatibility and conflict resolution
 
 ## 🧪 Testing
 
