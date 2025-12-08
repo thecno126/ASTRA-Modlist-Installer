@@ -115,13 +115,23 @@ def askokcancel(title, message, parent=None):
     return _show_dialog("question", title, message, parent, [("OK", True), ("Cancel", False)])
 
 
-def show_validation_report(parent, github_count, gdrive_mods, other_domains, failed_list):
+def ask_version_action(title, message, parent=None):
+    """Show a dialog with Force Update / Continue / Cancel options.
+    
+    Returns:
+        str: 'force_update', 'continue', or 'cancel'
+    """
+    return _show_dialog("warning", title, message, parent, 
+                       [("Force Update", "force_update"), ("Continue", "continue"), ("Cancel", "cancel")])
+
+
+def show_validation_report(parent, github_mods, gdrive_mods, other_domains, failed_list):
     """
     Show URL validation report dialog with domain breakdown.
     
     Args:
         parent: Parent window
-        github_count: Number of GitHub URLs
+        github_mods: List of GitHub mods
         gdrive_mods: List of Google Drive mods
         other_domains: Dict of {domain: [mod, ...]}
         failed_list: List of {'mod': mod, 'status': code, 'error': str}
@@ -149,12 +159,23 @@ def show_validation_report(parent, github_count, gdrive_mods, other_domains, fai
     summary_frame.pack(fill=tk.X, pady=(0, 15))
     
     # GitHub mods
-    if github_count > 0:
+    if len(github_mods) > 0:
         github_frame = tk.Frame(summary_frame)
         github_frame.pack(fill=tk.X, pady=(0, 8))
         
-        tk.Label(github_frame, text=f"✓ {github_count} mod(s) from GitHub", 
+        tk.Label(github_frame, text=f"✓ {len(github_mods)} mod(s) from GitHub", 
                 font=("Arial", 11, "bold"), fg="#2d862d").pack(anchor=tk.W)
+        
+        # List GitHub mods
+        github_list_frame = tk.Frame(github_frame, relief=tk.SUNKEN, bd=1, bg="#e6ffe6")
+        github_list_frame.pack(fill=tk.X, padx=(20, 0), pady=(4, 0))
+        
+        github_text = tk.Text(github_list_frame, height=min(4, len(github_mods)), width=55,
+                             font=("Courier", 9), wrap=tk.WORD, bg="#e6ffe6", relief=tk.FLAT)
+        for mod in github_mods:
+            github_text.insert(tk.END, f"  • {mod.get('name', 'Unknown')}\n")
+        github_text.config(state=tk.DISABLED)
+        github_text.pack(padx=5, pady=5)
     
     # Google Drive mods with info
     if len(gdrive_mods) > 0:
@@ -247,7 +268,7 @@ def show_validation_report(parent, github_count, gdrive_mods, other_domains, fai
     button_container = tk.Frame(button_frame)
     button_container.pack(anchor=tk.CENTER)
     
-    if github_count > 0 or len(gdrive_mods) > 0 or other_domains:
+    if len(github_mods) > 0 or len(gdrive_mods) > 0 or other_domains:
         tk.Button(button_container, text="Continue", command=on_continue,
                  font=("Arial", 10, "bold"), cursor="hand2", padx=20, pady=8).pack(side=tk.LEFT, padx=(0, 5))
     

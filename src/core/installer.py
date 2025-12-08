@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import time
+import json
 from pathlib import Path
 
 try:
@@ -302,6 +303,80 @@ class ModInstaller:
         if match:
             return match.group(1)
         return None
+    
+    def _extract_game_version_from_text(self, content):
+        """
+        Extract gameVersion (compatible Starsector version) from mod_info.json text.
+        
+        Args:
+            content: Raw text content of mod_info.json
+            
+        Returns:
+            str: Game version (e.g., "0.98a-RC8") or None if not found
+        """
+        # Look for "gameVersion" field
+        match = re.search(r'"?gameVersion"?\s*:\s*["\']([^"\']+)["\']', content, re.IGNORECASE)
+        if match:
+            return match.group(1)
+        return None
+    
+    def extract_mod_metadata(self, archive_path, is_7z=False):
+        """
+        Extract mod metadata (version, id, gameVersion) from an archive without extracting it.
+        
+        Args:
+            archive_path: Path to the mod archive file
+            is_7z: Whether the archive is 7z format
+            
+        Returns:
+            dict: {'version': str, 'id': str, 'gameVersion': str} or None if mod_info.json not found
+        """
+        try:
+            if is_7z:
+                if not HAS_7ZIP:
+                    return None
+                import py7zr
+                with py7zr.SevenZipFile(archive_path, 'r') as archive:
+                    members = archive.getnames()
+                    # Find mod_info.json
+                    mod_info_path = None
+                    for member in members:
+                        if member.endswith('mod_info.json'):
+                            mod_info_path = member
+                            break
+                    
+                    if not mod_info_path:
+                        return None
+                    
+                    # Extract just mod_info.json to memory
+                    extracted = archive.read([mod_info_path])
+                    content = extracted[mod_info_path].read().decode('utf-8')
+            else:
+                with zipfile.ZipFile(archive_path, 'r') as archive:
+                    members = archive.namelist()
+                    # Find mod_info.json
+                    mod_info_path = None
+                    for member in members:
+                        if member.endswith('mod_info.json'):
+                            mod_info_path = member
+                            break
+                    
+                    if not mod_info_path:
+                        return None
+                    
+                    with archive.open(mod_info_path) as f:
+                        content = f.read().decode('utf-8')
+            
+            # Extract metadata
+            return {
+                'version': self._extract_version_from_text(content),
+                'id': self._extract_id_from_text(content),
+                'gameVersion': self._extract_game_version_from_text(content)
+            }
+            
+        except Exception as e:
+            self.log(f"  ⚠ Warning: Could not extract metadata: {e}", debug=True)
+            return None
     
     def install_mod(self, mod, mods_dir):
         """
@@ -630,3 +705,267 @@ class ModInstaller:
                     return 'skipped'
         
         return False
+    
+    def update_enabled_mods(self, mods_dir, installed_mod_names, merge=True):
+        """
+        Create or update enabled_mods.json to enable the specified mods.
+        
+        Args:
+            mods_dir: Path to the Starsector mods directory
+            installed_mod_names: List of mod names (folder names) that should be enabled
+            merge: If True, merge with existing enabled mods. If False, replace entirely.
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            enabled_mods_file = mods_dir / "enabled_mods.json"
+            
+            # Load existing enabled mods if merging
+            existing_ids = []
+            if merge and enabled_mods_file.exists():
+                try:
+                    with open(enabled_mods_file, 'r', encoding='utf-8') as f:
+                        existing_data = json.load(f)
+                        existing_ids = existing_data.get('enabledMods', [])
+                        self.log(f"  Found {len(existing_ids)} previously enabled mod(s)", debug=True)
+                except (json.JSONDecodeError, IOError) as e:
+                    self.log(f"  ⚠ Warning: Could not read existing enabled_mods.json: {e}", info=True)
+                    existing_ids = []
+            
+            # Collect mod IDs from newly installed mods
+            new_ids = []
+            
+            for mod_name in installed_mod_names:
+                mod_folder = mods_dir / mod_name
+                mod_info_file = mod_folder / "mod_info.json"
+                
+                if not mod_info_file.exists():
+                    self.log(f"  ⚠ Warning: No mod_info.json found for '{mod_name}'", info=True)
+                    continue
+                
+                try:
+                    with open(mod_info_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    mod_id = self._extract_id_from_text(content)
+                    if mod_id:
+                        new_ids.append(mod_id)
+                        self.log(f"  ✓ Found mod ID '{mod_id}' for {mod_name}", debug=True)
+                    else:
+                        self.log(f"  ⚠ Warning: Could not extract ID from '{mod_name}'", info=True)
+                        
+                except (IOError, UnicodeDecodeError) as e:
+                    self.log(f"  ⚠ Warning: Error reading mod_info.json for '{mod_name}': {e}", info=True)
+            
+            # Merge: combine existing + new IDs, removing duplicates while preserving order
+            if merge:
+                # Keep existing IDs that are not in new_ids
+                enabled_ids = [id for id in existing_ids if id not in new_ids]
+                # Add all new IDs
+                enabled_ids.extend(new_ids)
+                added_count = len(new_ids)
+            else:
+                # Replace: only use new IDs
+                enabled_ids = new_ids
+                added_count = len(new_ids)
+            
+            # Create enabled_mods.json structure
+            enabled_mods_data = {"enabledMods": enabled_ids}
+            
+            # Write to file with atomic save
+            temp_file = enabled_mods_file.with_suffix('.json.tmp')
+            try:
+                with open(temp_file, 'w', encoding='utf-8') as f:
+                    json.dump(enabled_mods_data, f, indent=2)
+                
+                # Atomic rename
+                temp_file.replace(enabled_mods_file)
+                
+                if merge and len(existing_ids) > 0:
+                    self.log(f"\n✓ Updated enabled_mods.json: +{added_count} new, {len(enabled_ids)} total", info=True)
+                else:
+                    self.log(f"\n✓ Created enabled_mods.json with {len(enabled_ids)} mod(s)", info=True)
+                return True
+                
+            except Exception as e:
+                if temp_file.exists():
+                    temp_file.unlink()
+                raise e
+                
+        except Exception as e:
+            self.log(f"  ✗ Error updating enabled_mods.json: {e}", error=True)
+            return False
+    
+    def detect_outdated_mods(self, mods_dir, modlist_mods):
+        """
+        Detect installed mods that have an older version than what's specified in the modlist.
+        
+        Args:
+            mods_dir: Path to the Starsector mods directory
+            modlist_mods: List of mod dictionaries from modlist with 'name' and optional 'version'
+            
+        Returns:
+            list: List of dicts with outdated mod info: [
+                {
+                    'name': 'ModName',
+                    'folder': 'ModFolder',
+                    'installed_version': '1.0.0',
+                    'expected_version': '1.2.0',
+                    'mod_id': 'modid'
+                },
+                ...
+            ]
+        """
+        outdated_mods = []
+        
+        try:
+            # Create a lookup dict for modlist mods by name
+            modlist_lookup = {mod.get('name'): mod for mod in modlist_mods if mod.get('game_version') or mod.get('version')}
+            
+            if not modlist_lookup:
+                self.log("  No version info in modlist for comparison", debug=True)
+                return outdated_mods
+            
+            # Scan installed mods
+            for folder in mods_dir.iterdir():
+                if not folder.is_dir() or folder.name.startswith('.'):
+                    continue
+                
+                mod_info_file = folder / "mod_info.json"
+                if not mod_info_file.exists():
+                    continue
+                
+                try:
+                    with open(mod_info_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    # Extract mod info
+                    mod_id = self._extract_id_from_text(content)
+                    installed_version = self._extract_version_from_text(content)
+                    
+                    # Try to match with modlist by name (search in content or folder name)
+                    for modlist_name, modlist_mod in modlist_lookup.items():
+                        # Check if this mod matches by name (case-insensitive partial match)
+                        if (modlist_name.lower() in content.lower() or 
+                            modlist_name.lower() in folder.name.lower()):
+                            
+                            expected_version = modlist_mod.get('version')
+                            
+                            if installed_version != 'unknown' and expected_version:
+                                # Compare versions
+                                comparison = _compare_versions(installed_version, expected_version)
+                                
+                                if comparison < 0:  # Installed version is older
+                                    outdated_mods.append({
+                                        'name': modlist_name,
+                                        'folder': folder.name,
+                                        'installed_version': installed_version,
+                                        'expected_version': expected_version,
+                                        'mod_id': mod_id or folder.name
+                                    })
+                                    self.log(f"  ⚠ Outdated: {modlist_name} ({installed_version} < {expected_version})", info=True)
+                            break  # Found match, no need to check other modlist entries
+                            
+                except (IOError, UnicodeDecodeError) as e:
+                    self.log(f"  ⚠ Warning: Error reading {folder.name}/mod_info.json: {e}", debug=True)
+                    continue
+            
+            return outdated_mods
+            
+        except Exception as e:
+            self.log(f"  ✗ Error detecting outdated mods: {e}", error=True)
+            return []
+    
+    def detect_incompatible_game_versions(self, mods_dir, expected_game_version):
+        """
+        Detect installed mods that are incompatible with the expected Starsector version.
+        Compatible means same major version (e.g., 0.98a-RC3 is compatible with 0.98a-RC11).
+        
+        Args:
+            mods_dir: Path to the Starsector mods directory
+            expected_game_version: Expected Starsector version (e.g., "0.98a-RC8")
+            
+        Returns:
+            list: List of dicts with incompatible mod info: [
+                {
+                    'name': 'ModName',
+                    'folder': 'ModFolder',
+                    'mod_game_version': '0.97a',
+                    'expected_game_version': '0.98a-RC8',
+                    'mod_id': 'modid'
+                },
+                ...
+            ]
+        """
+        incompatible_mods = []
+        
+        def extract_major_version(version_str):
+            """
+            Extract major version from Starsector version string.
+            Examples:
+                "0.98a-RC8" -> "0.98a"
+                "0.97a-RC11" -> "0.97a"
+                "0.95.1a-RC6" -> "0.95.1a"
+            """
+            if not version_str:
+                return None
+            # Remove RC and everything after it
+            match = re.match(r'([\d.]+[a-z]?)', version_str.split('-')[0])
+            if match:
+                return match.group(1)
+            return version_str.split('-')[0]
+        
+        try:
+            if not expected_game_version:
+                self.log("  No expected game version specified", debug=True)
+                return incompatible_mods
+            
+            expected_major = extract_major_version(expected_game_version)
+            if not expected_major:
+                self.log("  Could not parse expected game version", debug=True)
+                return incompatible_mods
+            
+            # Scan installed mods
+            for folder in mods_dir.iterdir():
+                if not folder.is_dir() or folder.name.startswith('.'):
+                    continue
+                
+                mod_info_file = folder / "mod_info.json"
+                if not mod_info_file.exists():
+                    continue
+                
+                try:
+                    with open(mod_info_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    # Extract mod info
+                    mod_id = self._extract_id_from_text(content)
+                    mod_game_version = self._extract_game_version_from_text(content)
+                    
+                    # Extract mod name from content
+                    name_match = re.search(r'"?name"?\s*:\s*"([^"]+)"', content, re.IGNORECASE)
+                    mod_name = name_match.group(1) if name_match else folder.name
+                    
+                    if mod_game_version:
+                        mod_major = extract_major_version(mod_game_version)
+                        
+                        # Compare major versions (0.98a vs 0.97a, ignore RC numbers)
+                        if mod_major and mod_major != expected_major:
+                            incompatible_mods.append({
+                                'name': mod_name,
+                                'folder': folder.name,
+                                'mod_game_version': mod_game_version,
+                                'expected_game_version': expected_game_version,
+                                'mod_id': mod_id or folder.name
+                            })
+                        
+                except (IOError, UnicodeDecodeError) as e:
+                    self.log(f"  ⚠ Warning: Error reading {folder.name}/mod_info.json: {e}", debug=True)
+                    continue
+            
+            return incompatible_mods
+            
+        except Exception as e:
+            self.log(f"  ✗ Error detecting incompatible game versions: {e}", error=True)
+            return []

@@ -12,6 +12,7 @@ import threading
 import concurrent.futures
 from datetime import datetime
 import sys
+import os
 import shutil
 import time
 
@@ -574,8 +575,7 @@ class ModlistInstaller:
                 self.mod_listbox.insert(tk.END, f"{cat}\n", 'category')
                 
                 for mod in categories[cat]:
-                    version = f" v{mod['version']}" if mod.get('version') else ""
-                    self.mod_listbox.insert(tk.END, f"  • {mod['name']}{version}\n", 'mod')
+                    self.mod_listbox.insert(tk.END, f"  • {mod['name']}\n", 'mod')
         
         self.mod_listbox.config(state=tk.DISABLED)
     
@@ -617,7 +617,7 @@ class ModlistInstaller:
         mods = self.modlist_data.get('mods', [])
         return next((m for m in mods if m['name'] == mod_name), None)
     
-    def log(self, message, error=False, info=False, warning=False, debug=False):
+    def log(self, message, error=False, info=False, warning=False, debug=False, success=False):
         """Append a message to the log with different severity levels.
         
         Args:
@@ -626,9 +626,10 @@ class ModlistInstaller:
             info: If True, display in blue (for informational messages)
             warning: If True, display in orange (for warnings)
             debug: If True, display in gray (for debug messages)
+            success: If True, display in green (for success messages)
         """
         if threading.current_thread() is not threading.main_thread():
-            self.root.after(0, lambda: self.log(message, error, info, warning, debug))
+            self.root.after(0, lambda: self.log(message, error=error, info=info, warning=warning, debug=debug, success=success))
             return
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -666,6 +667,9 @@ class ModlistInstaller:
         elif warning:
             tag = "warning"
             self.log_text.tag_config("warning", foreground="#e67e22")  # Orange
+        elif success:
+            tag = "success"
+            self.log_text.tag_config("success", foreground="#2ecc71")  # Green
         elif info:
             tag = "info"
             self.log_text.tag_config("info", foreground="#3498db")  # Blue
@@ -913,6 +917,28 @@ class ModlistInstaller:
         if not self._show_validation_summary(results):
             return
         
+        # Check for outdated mods before installation
+        mods_dir = starsector_dir / "mods"
+        if mods_dir.exists():
+            self.log("\nChecking for outdated mods...")
+            outdated = self.mod_installer.detect_outdated_mods(mods_dir, self.modlist_data['mods'])
+            
+            if outdated:
+                self.log(f"\n⚠ Found {len(outdated)} outdated mod(s):", warning=True)
+                for mod_info in outdated:
+                    self.log(f"  • {mod_info['name']}: v{mod_info['installed_version']} → v{mod_info['expected_version']}", warning=True)
+                
+                # Ask user if they want to update
+                msg = f"{len(outdated)} mod(s) will be updated:\n\n"
+                for mod_info in outdated[:5]:  # Show max 5 in dialog
+                    msg += f"• {mod_info['name']}: v{mod_info['installed_version']} → v{mod_info['expected_version']}\n"
+                if len(outdated) > 5:
+                    msg += f"... +{len(outdated) - 5} more\n"
+                
+                custom_dialogs.showinfo("Outdated Mods", msg)
+        else:
+            self.log(f"\nMods directory not found at {mods_dir}, skipping version checks", debug=True)
+        
         # Start installation
         self.is_installing = True
         self.is_paused = False
@@ -967,18 +993,18 @@ class ModlistInstaller:
         Returns:
             bool: True if user wants to continue, False otherwise
         """
-        github_count = len(results['github'])
+        github_mods = results['github']
         gdrive_mods = results['google_drive']
         other_domains = results['other']
         failed_list = results['failed']
         
         total_other = sum(len(mods) for mods in other_domains.values())
-        self.log(f"GitHub: {github_count}, Google Drive: {len(gdrive_mods)}, Other: {total_other}, Failed: {len(failed_list)}")
+        self.log(f"GitHub: {len(github_mods)}, Google Drive: {len(gdrive_mods)}, Other: {total_other}, Failed: {len(failed_list)}")
         
-        if github_count > 0 or gdrive_mods or other_domains or failed_list:
+        if github_mods or gdrive_mods or other_domains or failed_list:
             action = custom_dialogs.show_validation_report(
                 self.root,
-                github_count,
+                github_mods,
                 gdrive_mods,
                 other_domains,
                 failed_list
@@ -1198,7 +1224,22 @@ class ModlistInstaller:
             else:
                 self.log(f"\n[{i}/{len(download_results)}] Installing {mod_name}...")
             try:
+                # Auto-detect game_version BEFORE extraction (while archive is still intact)
+                if not mod.get('game_version') and Path(temp_path).exists():
+                    try:
+                        metadata = self.mod_installer.extract_mod_metadata(Path(temp_path), is_7z)
+                        if metadata and metadata.get('gameVersion'):
+                            # Update in modlist_data
+                            for m in self.modlist_data.get('mods', []):
+                                if m['name'] == mod['name']:
+                                    m['game_version'] = metadata['gameVersion']
+                                    self.log(f"  ℹ Auto-detected game version: {metadata['gameVersion']}", info=True)
+                                    break
+                    except Exception as e:
+                        self.log(f"  ⚠ Could not auto-detect game version: {e}", debug=True)
+                
                 success = self.mod_installer.extract_archive(Path(temp_path), mods_dir, is_7z)
+                
                 try:
                     Path(temp_path).unlink()
                 except Exception:
@@ -1207,7 +1248,7 @@ class ModlistInstaller:
                     # Already logged by installer
                     skipped += 1
                 elif success:
-                    self.log(f"  ✓ {mod['name']} installed successfully")
+                    self.log(f"  ✓ {mod['name']} installed successfully", success=True)
                     extracted += 1
                 else:
                     self.log(f"  ✗ Failed to install {mod['name']}", error=True)
@@ -1264,7 +1305,43 @@ class ModlistInstaller:
             for mod in all_gdrive_issues:
                 self.log(f"  - {mod.get('name')}", error=True)
         
-        self.log("\nYou can now start Starsector to enable the mods.")
+        # Update enabled_mods.json to activate only installed mods
+        self.log("\n" + "=" * 50)
+        self.log("Updating mod activation...")
+        
+        # Collect successfully installed mod folder names
+        successfully_installed_mods = []
+        for mod in download_results:
+            mod_obj, _, _ = mod
+            mod_name = mod_obj.get('name')
+            
+            # Try to find the mod folder in mods_dir
+            # The folder name might be different from the mod name
+            # We'll scan for folders that might match
+            for folder in mods_dir.iterdir():
+                if folder.is_dir() and folder.name not in ['.', '..']:
+                    # Check if this folder has a mod_info.json
+                    mod_info = folder / "mod_info.json"
+                    if mod_info.exists():
+                        try:
+                            with open(mod_info, 'r', encoding='utf-8') as f:
+                                content = f.read()
+                            # Check if the mod name matches (case-insensitive partial match)
+                            if mod_name.lower() in content.lower() or mod_name.lower() in folder.name.lower():
+                                if folder.name not in successfully_installed_mods:
+                                    successfully_installed_mods.append(folder.name)
+                        except Exception:
+                            pass
+        
+        # Update enabled_mods.json
+        if successfully_installed_mods:
+            self.mod_installer.update_enabled_mods(mods_dir, successfully_installed_mods)
+            self.log(f"✓ Activated {len(successfully_installed_mods)} mod(s) in Starsector")
+        
+        # Save modlist to persist any auto-detected game_version values
+        self.save_modlist_config(log_message=False)
+        
+        self.log("\nYou can now start Starsector. All installed mods are already activated except those with incorrect game version, manage them via TriOS.")
 
         self.is_installing = False
         self.install_modlist_btn.config(state=tk.NORMAL, text="Install Modlist")
@@ -1272,6 +1349,9 @@ class ModlistInstaller:
         
         # Clear temp files tracker (all should be deleted by now)
         self.downloaded_temp_files = []
+        
+        # Refresh the UI to show updated game versions (after all installation is complete)
+        self.root.after(0, self.display_modlist_info)
 
         # Show manual download instructions for Google Drive mods
         if len(all_gdrive_issues) > 0:
@@ -1365,7 +1445,7 @@ class ModlistInstaller:
         
         # Keyboard bindings
         dialog.bind("<Escape>", lambda e: on_cancel())
-        dialog.bind("<Return>", lambda e: on_apply())
+        dialog.bind("<Return>", lambda e: on_confirm())
         
         # Center on parent
         dialog.update_idletasks()

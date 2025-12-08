@@ -50,7 +50,7 @@ def open_add_mod_dialog(parent, app):
 
     name_var = tk.StringVar()
     url_var = tk.StringVar()
-    version_var = tk.StringVar()
+    game_version_var = tk.StringVar()
     category_var = tk.StringVar(value="Uncategorized")
 
     tk.Label(dlg, text="Mod Name:").grid(row=0, column=0, sticky="e", padx=8, pady=(12, 6))
@@ -59,8 +59,8 @@ def open_add_mod_dialog(parent, app):
     tk.Label(dlg, text="Download URL:").grid(row=1, column=0, sticky="e", padx=8, pady=6)
     tk.Entry(dlg, textvariable=url_var, width=45).grid(row=1, column=1, padx=8, pady=6)
 
-    tk.Label(dlg, text="Version (optional):").grid(row=2, column=0, sticky="e", padx=8, pady=6)
-    tk.Entry(dlg, textvariable=version_var, width=45).grid(row=2, column=1, padx=8, pady=6)
+    tk.Label(dlg, text="Game Version (optional):").grid(row=2, column=0, sticky="e", padx=8, pady=6)
+    tk.Entry(dlg, textvariable=game_version_var, width=45).grid(row=2, column=1, padx=8, pady=6)
 
     tk.Label(dlg, text="Category:").grid(row=3, column=0, sticky="e", padx=8, pady=6)
     category_combo = ttk.Combobox(dlg, textvariable=category_var, width=42, values=app.categories)
@@ -74,8 +74,8 @@ def open_add_mod_dialog(parent, app):
             return
 
         mod = {"name": name, "download_url": url}
-        if version_var.get().strip():
-            mod["version"] = version_var.get().strip()
+        if game_version_var.get().strip():
+            mod["game_version"] = game_version_var.get().strip()
         if category_var.get().strip():
             mod["category"] = category_var.get().strip()
         else:
@@ -98,9 +98,38 @@ def open_edit_mod_dialog(parent, app, current_mod):
     dlg.geometry("500x250")
     dlg.resizable(False, False)
 
+    # Try to get game_version from installed mod first, fallback to modlist
+    game_version_value = current_mod.get('game_version', current_mod.get('version', ''))
+    
+    # Check if mod is installed and read game_version from mod_info.json
+    from pathlib import Path
+    import re
+    starsector_dir = app.starsector_path.get()
+    if starsector_dir:
+        mods_dir = Path(starsector_dir) / "mods"
+        if mods_dir.exists():
+            # Search for the mod folder
+            mod_name = current_mod['name']
+            for folder in mods_dir.iterdir():
+                if folder.is_dir() and not folder.name.startswith('.'):
+                    mod_info_file = folder / "mod_info.json"
+                    if mod_info_file.exists():
+                        try:
+                            with open(mod_info_file, 'r', encoding='utf-8') as f:
+                                content = f.read()
+                            # Check if this is the right mod
+                            if mod_name.lower() in content.lower() or mod_name.lower() in folder.name.lower():
+                                # Extract gameVersion from the installed mod
+                                version_match = re.search(r'["\']?gameVersion["\']?\s*:\s*["\']([^"\']+)["\']', content, re.IGNORECASE)
+                                if version_match:
+                                    game_version_value = version_match.group(1)
+                                    break
+                        except Exception:
+                            pass
+
     name_var = tk.StringVar(value=current_mod['name'])
     url_var = tk.StringVar(value=current_mod['download_url'])
-    version_var = tk.StringVar(value=current_mod.get('version', ''))
+    game_version_var = tk.StringVar(value=game_version_value)
     category_var = tk.StringVar(value=current_mod.get('category', 'Uncategorized'))
 
     tk.Label(dlg, text="Mod Name:").grid(row=0, column=0, sticky="e", padx=8, pady=(12, 6))
@@ -109,8 +138,8 @@ def open_edit_mod_dialog(parent, app, current_mod):
     tk.Label(dlg, text="Download URL:").grid(row=1, column=0, sticky="e", padx=8, pady=6)
     tk.Entry(dlg, textvariable=url_var, width=45).grid(row=1, column=1, padx=8, pady=6)
 
-    tk.Label(dlg, text="Version (optional):").grid(row=2, column=0, sticky="e", padx=8, pady=6)
-    tk.Entry(dlg, textvariable=version_var, width=45).grid(row=2, column=1, padx=8, pady=6)
+    tk.Label(dlg, text="Game Version (optional):").grid(row=2, column=0, sticky="e", padx=8, pady=6)
+    tk.Entry(dlg, textvariable=game_version_var, width=45).grid(row=2, column=1, padx=8, pady=6)
 
     tk.Label(dlg, text="Category:").grid(row=3, column=0, sticky="e", padx=8, pady=6)
     category_combo = ttk.Combobox(dlg, textvariable=category_var, width=42, values=app.categories)
@@ -130,8 +159,13 @@ def open_edit_mod_dialog(parent, app, current_mod):
                 mod['name'] = name
                 mod['download_url'] = url
                 mod['category'] = category_var.get().strip() or "Uncategorized"
-                if version_var.get().strip():
-                    mod['version'] = version_var.get().strip()
+                if game_version_var.get().strip():
+                    mod['game_version'] = game_version_var.get().strip()
+                    # Remove old 'version' field if it exists
+                    if 'version' in mod:
+                        del mod['version']
+                elif 'game_version' in mod:
+                    del mod['game_version']
                 elif 'version' in mod:
                     del mod['version']
                 break
@@ -323,8 +357,18 @@ def open_import_csv_dialog(parent, app):
     )
     if not csv_file:
         return
-
-    thread = threading.Thread(target=_import_csv_file, args=(csv_file, app), daemon=True)
+    
+    # Ask user if they want to replace or merge
+    response = custom_dialogs.show_import_mode_dialog(parent)
+    
+    if response == 'cancel':
+        return
+    
+    thread = threading.Thread(
+        target=_import_csv_file, 
+        args=(csv_file, app, response == 'replace'), 
+        daemon=True
+    )
     thread.start()
 
 
@@ -352,29 +396,41 @@ def open_export_csv_dialog(parent, app):
             ])
             
             # Write mods section
-            writer = csv.DictWriter(f, fieldnames=['name', 'download_url', 'version', 'category'])
+            writer = csv.DictWriter(f, fieldnames=['name', 'download_url', 'game_version', 'category'])
             writer.writeheader()
             
             for mod in app.modlist_data.get('mods', []):
                 writer.writerow({
                     'name': mod.get('name', ''),
                     'download_url': mod.get('download_url', ''),
-                    'version': mod.get('version', ''),
+                    'game_version': mod.get('game_version', mod.get('version', '')),
                     'category': mod.get('category', 'Uncategorized')
                 })
         
-        app.log(f"Exported {len(app.modlist_data.get('mods', []))} mods to {csv_file}")
-        custom_dialogs.showsuccess("Export Complete", f"Modlist exported successfully to:\n{csv_file}")
+        app.log(f"✓ Exported {len(app.modlist_data.get('mods', []))} mods to {csv_file}", success=True)
+    except Exception as e:
+        app.log(f"✗ Export error: {e}", error=True)
+
+
+def _import_csv_file(csv_path: str, app, replace_mode: bool = False):
+    """Import CSV logic executed in a background thread.
     
-    except (OSError, csv.Error, UnicodeEncodeError) as e:
-        app.log(f"Error exporting CSV: {type(e).__name__}: {e}", error=True)
-        custom_dialogs.showerror("Export Error", f"Failed to export CSV:\n{type(e).__name__}: {str(e)}")
-
-
-def _import_csv_file(csv_path: str, app):
-    """Import CSV logic executed in a background thread."""
+    Args:
+        csv_path: Path to the CSV file
+        app: Main application instance
+        replace_mode: If True, clear existing mods before import. If False, merge.
+    """
     app.root.after(0, lambda: _set_ui_enabled(app, False))
-    app.log(f"Importing CSV: {csv_path}...")
+    
+    mode_str = "Replacing" if replace_mode else "Merging"
+    app.log(f"{mode_str} modlist from CSV: {csv_path}...")
+    
+    # Clear existing mods if replace mode
+    if replace_mode:
+        original_count = len(app.modlist_data.get('mods', []))
+        app.modlist_data['mods'] = []
+        app.log(f"  Cleared {original_count} existing mod(s)")
+    
     try:
         # Read all lines first to detect metadata
         with open(csv_path, 'r', encoding='utf-8') as f:
@@ -449,10 +505,11 @@ def _import_csv_file(csv_path: str, app):
             
             added_count = 0
             new_categories = []
+            
             for r in rows:
                 name = (r.get('name') or '').strip()
                 url = (r.get('download_url') or r.get('url') or '').strip()
-                version = (r.get('version') or '').strip()
+                game_version = (r.get('game_version') or r.get('version') or '').strip()
                 category = (r.get('category') or '').strip()
 
                 if not name or not url:
@@ -468,8 +525,8 @@ def _import_csv_file(csv_path: str, app):
                     "download_url": url,
                     "category": category or 'Uncategorized'
                 }
-                if version:
-                    mod_obj['version'] = version
+                if game_version:
+                    mod_obj['game_version'] = game_version
                 
                 # Track new categories
                 if category and category not in app.categories and category not in new_categories:

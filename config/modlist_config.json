@@ -7,7 +7,8 @@
     {
       "name": "Lunalib",
       "download_url": "https://github.com/Lukas22041/LunaLib/releases/latest/download/LunaLib.zip",
-      "category": "Libs"
+      "category": "Libs",
+      "game_version": "0.98a-RC5"
     },
     {
       "name": "GraphicLib",
@@ -17,47 +18,68 @@
     {
       "name": "MagicLib",
       "download_url": "https://github.com/MagicLibStarsector/MagicLib/releases/latest/download/MagicLib.zip",
-      "category": "Libs"
+      "category": "Libs",
+      "game_version": "0.98a-RC7"
     },
     {
       "name": "Market Retrofits",
       "download_url": "https://github.com/Alaricdragon/MarketRetrofits/archive/refs/heads/master.zip",
-      "category": "Libs"
+      "category": "Libs",
+      "game_version": "0.98a-RC5"
     },
     {
       "name": "Nexerelin",
       "download_url": "https://github.com/Histidine91/Nexerelin/releases/download/v0.12.1b/Nexerelin_0.12.1b.zip",
-      "category": "Megamods"
+      "category": "Megamods",
+      "game_version": "0.98a-RC8"
     },
     {
       "name": "RAT",
       "download_url": "https://github.com/Lukas22041/Random-Assortment-of-Things/releases/latest/download/Random-Assortment-of-Things.zip",
-      "category": "Megamods"
+      "category": "Megamods",
+      "game_version": "0.98a-RC8"
     },
     {
       "name": "Grand Colonies",
       "download_url": "https://github.com/SirHartley/Grand.Colonies/releases/download/2.1.b/Grand.Colonies2.1.b.zip",
-      "category": "Gameplay"
+      "category": "Gameplay",
+      "game_version": "0.98a"
     },
     {
       "name": "PAGSM",
       "download_url": "https://drive.google.com/uc?export=download&id=1FDZoF81T14cAx3_feXBBqXuBFTFOGd1y",
-      "category": "Factions"
+      "category": "Factions",
+      "game_version": "0.98a-RC7"
     },
     {
       "name": "Roider Union",
       "download_url": "https://github.com/SafariJohn/Roider-Union/raw/refs/heads/main/Roider%20Union%202.2.6.zip",
-      "category": "Factions"
+      "category": "Factions",
+      "game_version": "0.98a-RC8"
     },
     {
       "name": "Tahlan Shipworks",
       "download_url": "https://github.com/niatahl/tahlan-shipworks/releases/download/1.4/tahlan-shipworks.zip",
-      "category": "Factions"
+      "category": "Factions",
+      "game_version": "0.98a"
     },
     {
       "name": "Meme Portraits",
       "download_url": "https://drive.google.com/uc?export=download&id=1W04kNVKEnZZDghE8jE9Yr6RJXXb_kBsq",
-      "category": "Bonuses"
+      "category": "Bonuses",
+      "game_version": "0.95a-RC15"
+    },
+    {
+      "name": "LazyLib",
+      "download_url": "https://github.com/LazyWizard/lazylib/releases/download/3.0/LazyLib.3.0.zip",
+      "category": "Libs",
+      "game_version": "0.98a-RC8"
+    },
+    {
+      "name": "RetroLib",
+      "download_url": "https://github.com/SafariJohn/Roider-Union/raw/refs/heads/main/RetroLib%201.1.1.zip",
+      "category": "Libs",
+      "game_version": "0.98a-RC8"
     }
   ]
 }
