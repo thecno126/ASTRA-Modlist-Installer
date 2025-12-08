@@ -3,18 +3,28 @@
 ![Tests](https://github.com/thecno126/ASTRA-Modlist-Installer/workflows/Tests/badge.svg)
 ![Build](https://github.com/thecno126/ASTRA-Modlist-Installer/workflows/Build%20and%20Release/badge.svg)
 
-A tool to manage and install Starsector modlists with parallel downloads and an intuitive graphical interface.
+A professional tool to manage and install Starsector modlists with parallel downloads, intelligent caching, and an intuitive graphical interface.
 
 ## ✨ Features
 
-- 📦 Automatic mod installation from URLs
-- ⚡ Parallel downloads (3 workers by default)
-- 🔒 Zip-slip protection and archive validation
-- 📊 Category management and mod reorganization
-- 💾 Atomic configuration saves
-- 🎨 Modern Tkinter interface with progress bar
-- 📋 CSV Import/Export to share your modlists
-- ✅ 10 unit tests with pytest
+### Core Capabilities
+- 📦 **Automatic mod installation** from URLs with retry logic and exponential backoff
+- ⚡ **Parallel downloads** (3 workers by default) for faster installation
+- 🔄 **Smart version detection** - Automatically updates mods when newer versions are available
+- 🔒 **Security** - Zip-slip protection and archive integrity validation
+- 💾 **Reliable saves** - Atomic configuration writes and auto-save on exit
+- 🌐 **Google Drive support** - Automatic HTML detection and URL fixing
+- 📊 **Category management** - Organize mods with drag-and-drop reordering
+- 🎨 **Modern UI** - Clean Tkinter interface with progress tracking and colored logs
+- 📋 **CSV Import/Export** - Share modlists easily
+- ✅ **36 unit tests** with pytest for reliability
+
+### Recent Improvements
+- 🚀 **Code refactoring** - 150+ lines eliminated, improved elegance and maintainability
+- 🎯 **URL validation cache** - Reduces redundant network requests (1-hour cache)
+- 🔁 **Automatic retry** - Up to 3 attempts with exponential backoff for network failures
+- 📝 **Silent saves** - No log spam from automatic configuration saves
+- 🛡️ **Error handling** - Specific exception handling instead of broad catches
 
 ## 🚀 Quick Start
 
@@ -104,17 +114,28 @@ ASTRA-Modlist-Installer/
 
 ## ✨ Detailed Features
 
-**Modlist Installer** - Install and manage Starsector mods
+**Modlist Installer** - Professional mod management for Starsector
 
 **Core Features:**
-- Auto-detect Starsector installation path (Windows/macOS/Linux)
-- GUI for managing mods (add, remove, reorder, categorize)
-- Import/export modlists from CSV
-- Install mods from URLs (ZIP and 7z archives)
-- Skip already-installed mods automatically
-- Progress tracking and detailed logging
-- System theme detection (light/dark mode)
-- Mod categories management
+- 🔍 **Auto-detect** Starsector installation path (Windows/macOS/Linux)
+- 🖥️ **GUI management** - Add, remove, reorder, and categorize mods
+- 📥 **Import/Export** - Share modlists via CSV format
+- 🌐 **Smart downloads** - Handles ZIP, 7z, and Google Drive links
+- ♻️ **Intelligent updates** - Compares versions and updates mods automatically
+- 📊 **Progress tracking** - Real-time installation progress with detailed logs
+- 🎨 **Theme support** - System theme detection (light/dark mode)
+- 🏷️ **Category management** - Create, rename, delete, and reorder categories
+- 💾 **Auto-save** - Configuration saved automatically on exit
+- 🔄 **Retry logic** - Automatic retry with exponential backoff on network failures
+
+**Advanced Features:**
+- **URL Validation Cache** - 1-hour cache reduces redundant network checks
+- **Archive Validation** - Integrity checks for ZIP and 7z files
+- **Version Comparison** - Smart parsing of version strings (supports "1.2.3", "2.0a", etc.)
+- **Google Drive Fix** - Detects and fixes HTML responses from Google Drive
+- **Zip-slip Protection** - Prevents malicious archives from escaping extraction directory
+- **Atomic Saves** - Temporary file writes prevent corruption on crash
+- **Skip Installed** - Automatically detects and skips already-installed mods
 
 **Usage:**
 ```bash
@@ -163,17 +184,6 @@ Mods are stored in `modlist_config.json`:
       "download_url": "https://example.com/lazylib.zip",
       "version": "2.8"
     }
-  ]
-}
-```
-
-**Required fields per mod:**
-- `name`: Mod name
-- `download_url`: Direct download link (ZIP or 7z)
-
-**Optional fields:**
-- `version`: Mod version (display only)
-
 ## 📦 Dependencies
 
 Install required libraries:
@@ -182,15 +192,90 @@ pip install -r requirements.txt
 ```
 
 **Required libraries:**
-- `requests>=2.31.0` - HTTP downloads and URL validation
-- `py7zr>=0.20.0` - 7zip archive support (optional, works without for ZIP only)
+- `requests>=2.31.0` - HTTP downloads, URL validation, and retry logic
+- `py7zr>=0.20.0` - 7zip archive support (optional, falls back to ZIP-only if unavailable)
+
+**Development dependencies:**
+- `pytest>=7.4.0` - Unit testing framework (36 tests)
+- `pytest-mock>=3.11.1` - Mocking for tests
+
+## 📦 Dependencies
+
+Install required libraries:
+```bash
+pip install -r requirements.txt
+```
 
 ## 🔄 Workflow
 
 1. **Add mods:** Use the GUI to build your modlist
    - Add mods individually via the "Add Mod" button
    - Or import from a CSV file ("Import CSV")
-   - Organize by categories and reorder as you like
+   - Organize by categories and reorder with arrow buttons or drag-and-drop
+2. **Install mods:** Click "Install Modlist" to download and install everything
+   - Automatic Starsector path detection
+   - ZIP and 7z support with integrity validation
+   - Smart version comparison - updates mods when newer versions available
+   - Duplicate and already-installed mod detection
+## 📝 Notes
+
+- **Smart duplicate prevention** - Mods are checked by name and URL
+- **Automatic format detection** - ZIP/7z detected from URL or Content-Type
+- **Intelligent installation** - Mods with single top-level folders installed as-is
+- **Version updates** - Automatically detects and updates to newer mod versions
+- **Google Drive handling** - Detects HTML responses and fixes URLs automatically
+- **Auto-save** - Configuration saved on exit to prevent data loss
+- **Silent saves** - No log spam from automatic saves (only Ctrl+S logs)
+- **Error recovery** - Retry logic with exponential backoff handles transient failures
+- **Skip duplicates** - Already-installed mods detected and skipped automatically
+
+## 🧪 Testing
+
+Run the test suite:
+```bash
+pytest tests/ -v
+```
+
+**Test coverage:**
+- Configuration management (save/load/reset)
+- Archive extraction (ZIP/7z)
+- Version comparison
+- Google Drive URL fixing
+- Download scenarios (parallel, timeout, errors)
+- URL validation and caching
+- Mod installation workflows
+
+All 36 tests pass ✅
+
+## 📄 License
+
+This project is open source. See LICENSE file for details.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit pull requests or open issues.
+
+## 📧 Contact
+
+For questions or support, please open an issue on GitHub.
+- **Modular architecture** - Separation of concerns (core, GUI, utils)
+- **Type hints** - Better IDE support and code clarity
+- **Comprehensive tests** - 36 unit tests covering core functionality
+- **Error handling** - Specific exception handling with detailed logging
+- **Code elegance** - Recent refactoring eliminated 150+ redundant lines
+
+### Performance Optimizations
+- **Parallel downloads** - Up to 3 concurrent mod downloads
+- **URL validation cache** - 1-hour cache for reachable URLs
+- **Lazy imports** - Optional dependencies loaded only when needed
+- **Atomic operations** - Efficient file I/O with temporary file strategy
+
+### Security & Reliability
+- **Zip-slip protection** - Path traversal prevention in archives
+- **Archive validation** - Integrity checks before extraction
+- **Atomic saves** - Prevent configuration corruption
+- **Retry with backoff** - Network failure resilience (exponential backoff: 0s → 2s → 4s)
+- **Version comparison** - Smart parsing handles various version formatse
 2. **Install mods:** Click "Install Modlist" to download and install everything
    - Automatic Starsector path detection
    - ZIP and 7z support
