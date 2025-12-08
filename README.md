@@ -10,7 +10,6 @@ A professional tool to manage and install Starsector modlists with parallel down
 ### Core Capabilities
 - 📦 **Automatic mod installation** from URLs with retry logic and exponential backoff
 - ⚡ **Parallel downloads** (3 workers by default) for faster installation
-- 🔄 **Smart version detection** - Automatically updates mods when newer versions are available
 - 🔒 **Security** - Zip-slip protection and archive integrity validation
 - 💾 **Reliable saves** - Atomic configuration writes and auto-save on exit
 - 🌐 **Google Drive support** - Automatic HTML detection and URL fixing
@@ -121,7 +120,6 @@ ASTRA-Modlist-Installer/
 - 🖥️ **GUI management** - Add, remove, reorder, and categorize mods
 - 📥 **Import/Export** - Share modlists via CSV format
 - 🌐 **Smart downloads** - Handles ZIP, 7z, and Google Drive links
-- ♻️ **Intelligent updates** - Compares versions and updates mods automatically
 - 📊 **Progress tracking** - Real-time installation progress with detailed logs
 - 🎨 **Theme support** - System theme detection (light/dark mode)
 - 🏷️ **Category management** - Create, rename, delete, and reorder categories
@@ -215,7 +213,6 @@ pip install -r requirements.txt
 2. **Install mods:** Click "Install Modlist" to download and install everything
    - Automatic Starsector path detection
    - ZIP and 7z support with integrity validation
-   - Smart version comparison - updates mods when newer versions available
    - Duplicate and already-installed mod detection
 3. **Manage compatibility:** Use **TriOS** to manage mod versions and compatibility
    - ASTRA Modlist Installer downloads and activates mods automatically
@@ -226,7 +223,6 @@ pip install -r requirements.txt
 - **Smart duplicate prevention** - Mods are checked by name and URL
 - **Automatic format detection** - ZIP/7z detected from URL or Content-Type
 - **Intelligent installation** - Mods with single top-level folders installed as-is
-- **Version updates** - Automatically detects and updates to newer mod versions
 - **Google Drive handling** - Detects HTML responses and fixes URLs automatically
 - **Auto-save** - Configuration saved on exit to prevent data loss
 - **Silent saves** - No log spam from automatic saves (only Ctrl+S logs)
