@@ -106,11 +106,12 @@ class ModlistInstaller:
         create_header(self.root)
         
         # Main container with horizontal split
-        main_container = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, sashwidth=8, sashrelief=tk.RAISED)
+        main_container = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, sashwidth=8, sashrelief=tk.RAISED,
+                                       bg=TriOSTheme.SURFACE)
         main_container.pack(fill=tk.BOTH, expand=True)
         
         # Left side: Main controls
-        left_frame = tk.Frame(main_container, padx=10, pady=10)
+        left_frame = tk.Frame(main_container, padx=10, pady=10, bg=TriOSTheme.SURFACE)
         main_container.add(left_frame, minsize=550, stretch="always")
         
         # Path section
@@ -167,7 +168,7 @@ class ModlistInstaller:
         )
         
         # Right side: Log panel
-        right_frame = tk.Frame(main_container, padx=10, pady=10)
+        right_frame = tk.Frame(main_container, padx=10, pady=10, bg=TriOSTheme.SURFACE)
         main_container.add(right_frame, minsize=400, stretch="always")
         
         log_frame, self.install_progress_bar, self.log_text = create_log_section(

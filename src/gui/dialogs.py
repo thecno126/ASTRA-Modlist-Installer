@@ -48,22 +48,23 @@ def open_add_mod_dialog(parent, app):
     dlg.title("Add Mod")
     dlg.geometry("500x250")
     dlg.resizable(False, False)
+    dlg.configure(bg=TriOSTheme.SURFACE)
 
     name_var = tk.StringVar()
     url_var = tk.StringVar()
     game_version_var = tk.StringVar()
     category_var = tk.StringVar(value="Uncategorized")
 
-    tk.Label(dlg, text="Mod Name:").grid(row=0, column=0, sticky="e", padx=8, pady=(12, 6))
-    tk.Entry(dlg, textvariable=name_var, width=45).grid(row=0, column=1, padx=8, pady=(12, 6))
+    tk.Label(dlg, text="Mod Name:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=0, column=0, sticky="e", padx=8, pady=(12, 6))
+    tk.Entry(dlg, textvariable=name_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=0, column=1, padx=8, pady=(12, 6))
 
-    tk.Label(dlg, text="Download URL:").grid(row=1, column=0, sticky="e", padx=8, pady=6)
-    tk.Entry(dlg, textvariable=url_var, width=45).grid(row=1, column=1, padx=8, pady=6)
+    tk.Label(dlg, text="Download URL:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=1, column=0, sticky="e", padx=8, pady=6)
+    tk.Entry(dlg, textvariable=url_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=1, column=1, padx=8, pady=6)
 
-    tk.Label(dlg, text="Game Version (optional):").grid(row=2, column=0, sticky="e", padx=8, pady=6)
-    tk.Entry(dlg, textvariable=game_version_var, width=45).grid(row=2, column=1, padx=8, pady=6)
+    tk.Label(dlg, text="Game Version (optional):", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=2, column=0, sticky="e", padx=8, pady=6)
+    tk.Entry(dlg, textvariable=game_version_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=2, column=1, padx=8, pady=6)
 
-    tk.Label(dlg, text="Category:").grid(row=3, column=0, sticky="e", padx=8, pady=6)
+    tk.Label(dlg, text="Category:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=3, column=0, sticky="e", padx=8, pady=6)
     category_combo = ttk.Combobox(dlg, textvariable=category_var, width=42, values=app.categories)
     category_combo.grid(row=3, column=1, padx=8, pady=6)
 
@@ -86,9 +87,9 @@ def open_add_mod_dialog(parent, app):
         custom_dialogs.showsuccess("Success", f"Mod '{name}' has been added to the modlist")
         dlg.destroy()
 
-    btn_frame = tk.Frame(dlg)
+    btn_frame = tk.Frame(dlg, bg=TriOSTheme.SURFACE)
     btn_frame.grid(row=4, column=0, columnspan=2, pady=12)
-    tk.Button(btn_frame, text="Cancel", command=dlg.destroy, width=10).pack(side=tk.RIGHT, padx=6)
+    tk.Button(btn_frame, text="Cancel", command=dlg.destroy, width=10, **TriOSTheme.get_button_style("secondary")).pack(side=tk.RIGHT, padx=6)
     add_button = tk.Button(btn_frame, text="Add", command=submit, width=10, **TriOSTheme.get_button_style("success"))
     add_button.pack(side=tk.RIGHT)
 
@@ -99,6 +100,7 @@ def open_edit_mod_dialog(parent, app, current_mod):
     dlg.title(f"Edit Mod: {current_mod['name']}")
     dlg.geometry("500x250")
     dlg.resizable(False, False)
+    dlg.configure(bg=TriOSTheme.SURFACE)
 
     # Try to get game_version from installed mod first, fallback to modlist
     game_version_value = current_mod.get('game_version', current_mod.get('version', ''))
@@ -134,16 +136,16 @@ def open_edit_mod_dialog(parent, app, current_mod):
     game_version_var = tk.StringVar(value=game_version_value)
     category_var = tk.StringVar(value=current_mod.get('category', 'Uncategorized'))
 
-    tk.Label(dlg, text="Mod Name:").grid(row=0, column=0, sticky="e", padx=8, pady=(12, 6))
-    tk.Entry(dlg, textvariable=name_var, width=45).grid(row=0, column=1, padx=8, pady=(12, 6))
+    tk.Label(dlg, text="Mod Name:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=0, column=0, sticky="e", padx=8, pady=(12, 6))
+    tk.Entry(dlg, textvariable=name_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=0, column=1, padx=8, pady=(12, 6))
 
-    tk.Label(dlg, text="Download URL:").grid(row=1, column=0, sticky="e", padx=8, pady=6)
-    tk.Entry(dlg, textvariable=url_var, width=45).grid(row=1, column=1, padx=8, pady=6)
+    tk.Label(dlg, text="Download URL:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=1, column=0, sticky="e", padx=8, pady=6)
+    tk.Entry(dlg, textvariable=url_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=1, column=1, padx=8, pady=6)
 
-    tk.Label(dlg, text="Game Version (optional):").grid(row=2, column=0, sticky="e", padx=8, pady=6)
-    tk.Entry(dlg, textvariable=game_version_var, width=45).grid(row=2, column=1, padx=8, pady=6)
+    tk.Label(dlg, text="Game Version (optional):", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=2, column=0, sticky="e", padx=8, pady=6)
+    tk.Entry(dlg, textvariable=game_version_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=2, column=1, padx=8, pady=6)
 
-    tk.Label(dlg, text="Category:").grid(row=3, column=0, sticky="e", padx=8, pady=6)
+    tk.Label(dlg, text="Category:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=3, column=0, sticky="e", padx=8, pady=6)
     category_combo = ttk.Combobox(dlg, textvariable=category_var, width=42, values=app.categories)
     category_combo.grid(row=3, column=1, padx=8, pady=6)
 
@@ -178,10 +180,10 @@ def open_edit_mod_dialog(parent, app, current_mod):
         custom_dialogs.showsuccess("Success", f"Mod '{name}' has been updated")
         dlg.destroy()
 
-    btn_frame = tk.Frame(dlg)
+    btn_frame = tk.Frame(dlg, bg=TriOSTheme.SURFACE)
     btn_frame.grid(row=4, column=0, columnspan=2, pady=12)
-    tk.Button(btn_frame, text="Cancel", command=dlg.destroy, width=10).pack(side=tk.RIGHT, padx=6)
-    tk.Button(btn_frame, text="Save", command=submit, width=10).pack(side=tk.RIGHT)
+    tk.Button(btn_frame, text="Cancel", command=dlg.destroy, width=10, **TriOSTheme.get_button_style("secondary")).pack(side=tk.RIGHT, padx=6)
+    tk.Button(btn_frame, text="Save", command=submit, width=10, **TriOSTheme.get_button_style("success")).pack(side=tk.RIGHT)
 
 
 def open_manage_categories_dialog(parent, app):
@@ -191,26 +193,30 @@ def open_manage_categories_dialog(parent, app):
     dlg.geometry("500x450")
     dlg.resizable(True, True)
     dlg.minsize(400, 350)
+    dlg.configure(bg=TriOSTheme.SURFACE)
     
-    tk.Label(dlg, text="Categories (in display order):", font=("Arial", 12, "bold")).pack(pady=(10, 5))
+    tk.Label(dlg, text="Categories (in display order):", font=("Arial", 12, "bold"),
+            bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).pack(pady=(10, 5))
     
     # Frame for listbox and move buttons
-    main_frame = tk.Frame(dlg)
+    main_frame = tk.Frame(dlg, bg=TriOSTheme.SURFACE)
     main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=5)
     
     # Listbox for categories
-    list_frame = tk.Frame(main_frame)
+    list_frame = tk.Frame(main_frame, bg=TriOSTheme.SURFACE)
     list_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     
-    scrollbar = tk.Scrollbar(list_frame)
+    scrollbar = tk.Scrollbar(list_frame, bg=TriOSTheme.SURFACE)
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     
-    cat_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set, height=15)
+    cat_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set, height=15,
+                            bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY,
+                            selectbackground=TriOSTheme.PRIMARY, selectforeground=TriOSTheme.SURFACE_DARK)
     cat_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     scrollbar.config(command=cat_listbox.yview)
     
     # Move buttons (↑↓)
-    move_frame = tk.Frame(main_frame)
+    move_frame = tk.Frame(main_frame, bg=TriOSTheme.SURFACE)
     move_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
     
     def refresh_category_listbox(selected_idx=None):
@@ -249,7 +255,7 @@ def open_manage_categories_dialog(parent, app):
     refresh_category_listbox()
     
     # Buttons frame
-    btn_frame = tk.Frame(dlg)
+    btn_frame = tk.Frame(dlg, bg=TriOSTheme.SURFACE)
     btn_frame.pack(fill=tk.X, padx=20, pady=10)
     
     def add_category():
@@ -327,7 +333,7 @@ def open_manage_categories_dialog(parent, app):
         app.log(f"Deleted category: {cat_name}")
     
     # Create left-side buttons
-    left_frame = tk.Frame(btn_frame)
+    left_frame = tk.Frame(btn_frame, bg=TriOSTheme.SURFACE)
     left_frame.pack(side=tk.LEFT)
     
     btn_add = tk.Button(left_frame, text="Add", command=add_category, **TriOSTheme.get_button_style("success"))
@@ -335,10 +341,10 @@ def open_manage_categories_dialog(parent, app):
     btn_delete = tk.Button(left_frame, text="Delete", command=delete_category, **TriOSTheme.get_button_style("danger"))
     
     # Create right-side button
-    right_frame = tk.Frame(btn_frame)
+    right_frame = tk.Frame(btn_frame, bg=TriOSTheme.SURFACE)
     right_frame.pack(side=tk.RIGHT)
     
-    btn_close = tk.Button(right_frame, text="Close", command=dlg.destroy)
+    btn_close = tk.Button(right_frame, text="Close", command=dlg.destroy, **TriOSTheme.get_button_style("secondary"))
     
     # Calculate width based on longest text
     max_text_width = max(len("Add"), len("Rename"), len("Delete"), len("Close"))
