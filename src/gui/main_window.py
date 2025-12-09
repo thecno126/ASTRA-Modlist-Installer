@@ -4,7 +4,7 @@ Simplified version using modular components.
 """
 
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, ttk
 import requests
 from . import custom_dialogs
 from pathlib import Path
@@ -56,6 +56,10 @@ class ModlistInstaller:
         
         # Apply TriOS-inspired theme
         self.root.configure(bg=TriOSTheme.SURFACE_DARK)
+        
+        # Configure ttk styles for themed widgets
+        self.style = ttk.Style()
+        TriOSTheme.configure_ttk_styles(self.style)
         
         # Config manager
         self.config_manager = ConfigManager()
@@ -910,19 +914,24 @@ class ModlistInstaller:
             custom_dialogs.showerror("Error", "No modlist configuration loaded")
             return
         
-        # Validate URLs
+        # Validate URLs asynchronously
         self.log("Validating mod URLs (this may take a moment)...")
         self.install_modlist_btn.config(text="Validating URLs...")
         
-        results = self._validate_urls_async()
-        self.install_modlist_btn.config(text="Install Modlist")
-        
+        # _validate_urls_async now handles the rest asynchronously
+        self._validate_urls_async()
+    
+    def _continue_installation_after_validation(self, results):
+        """Continue installation after URL validation completes."""
         if not results:
             return
         
         # Show validation summary and check if user wants to continue
         if not self._show_validation_summary(results):
             return
+        
+        # Get starsector directory again
+        starsector_dir = Path(self.starsector_path.get())
         
         # Check for outdated mods before installation
         mods_dir = starsector_dir / "mods"
@@ -976,23 +985,34 @@ class ModlistInstaller:
         validation_thread = threading.Thread(target=run_validation, daemon=True)
         validation_thread.start()
         
-        # Wait with periodic UI updates
+        # Wait with periodic UI updates (using after instead of update to prevent blocking)
         max_wait = 60
-        elapsed = 0
-        while validation_thread.is_alive() and elapsed < max_wait:
-            self.root.update()
-            validation_thread.join(timeout=0.1)
-            elapsed += 0.1
+        start_time = time.time()
         
-        if validation_result['error']:
-            custom_dialogs.showerror("Validation Error", f"Failed to validate URLs: {validation_result['error']}")
-            return None
+        def check_validation_status():
+            if validation_result['error']:
+                custom_dialogs.showerror("Validation Error", f"Failed to validate URLs: {validation_result['error']}")
+                self.install_modlist_btn.config(text="Install Modlist")
+                return
+            
+            if validation_result['data']:
+                # Validation complete
+                self.install_modlist_btn.config(text="Install Modlist")
+                self._continue_installation_after_validation(validation_result['data'])
+                return
+            
+            elapsed = time.time() - start_time
+            if elapsed >= max_wait:
+                custom_dialogs.showerror("Validation Timeout", "URL validation took too long. Try again or check your internet connection.")
+                self.install_modlist_btn.config(text="Install Modlist")
+                return
+            
+            # Check again in 100ms
+            self.root.after(100, check_validation_status)
         
-        if not validation_result['data']:
-            custom_dialogs.showerror("Validation Timeout", "URL validation took too long. Try again or check your internet connection.")
-            return None
-        
-        return validation_result['data']
+        # Start checking
+        self.root.after(100, check_validation_status)
+        return None  # Will be handled asynchronously
     
     def _show_validation_summary(self, results):
         """Show validation results summary and prompt user to continue.
@@ -1377,40 +1397,42 @@ class ModlistInstaller:
         dialog.transient(self.root)
         dialog.grab_set()
         dialog.resizable(False, False)
+        dialog.configure(bg=TriOSTheme.SURFACE)
         
         # Main frame
-        main_frame = tk.Frame(dialog)
+        main_frame = tk.Frame(dialog, bg=TriOSTheme.SURFACE)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
         # Failed Google Drive mods section
-        gdrive_frame = tk.Frame(main_frame)
+        gdrive_frame = tk.Frame(main_frame, bg=TriOSTheme.SURFACE)
         gdrive_frame.pack(fill=tk.X, pady=(0, 10))
         
         tk.Label(gdrive_frame, text=f"{len(failed_mods)} Google Drive mod(s) need confirmation to download:", 
-                font=("Arial", 10, "bold"), fg="#dc2626").pack(anchor=tk.W, pady=(0, 8))
+                font=("Arial", 10, "bold"), bg=TriOSTheme.SURFACE, fg=TriOSTheme.ERROR).pack(anchor=tk.W, pady=(0, 8))
         
         # List Google Drive mods
-        gdrive_list_frame = tk.Frame(gdrive_frame, relief=tk.SUNKEN, bd=1, bg="#ffe6e6")
+        gdrive_list_frame = tk.Frame(gdrive_frame, bg=TriOSTheme.GDRIVE_BG)
         gdrive_list_frame.pack(fill=tk.X, pady=(0, 10))
         
         gdrive_text = tk.Text(gdrive_list_frame, height=min(5, len(failed_mods)), width=60,
-                             font=("Courier", 9), wrap=tk.WORD, bg="#ffe6e6", relief=tk.FLAT)
+                             font=("Courier", 9), wrap=tk.WORD, bg=TriOSTheme.GDRIVE_BG, fg=TriOSTheme.TEXT_PRIMARY, 
+                             relief=tk.FLAT, highlightthickness=0, borderwidth=0)
         for mod in failed_mods:
             gdrive_text.insert(tk.END, f"  • {mod.get('name', 'Unknown')}\n")
         gdrive_text.config(state=tk.DISABLED)
         gdrive_text.pack(padx=5, pady=5)
         
         # Warning message
-        warning_frame = tk.Frame(gdrive_frame)
+        warning_frame = tk.Frame(gdrive_frame, bg=TriOSTheme.SURFACE)
         warning_frame.pack(fill=tk.X, pady=(0, 0))
         
         warning_text = tk.Label(warning_frame, 
             text="⚠️  Google can't verify these files due to their size. Confirm only if from a trusted source.",
-            font=("Arial", 9), fg="#666", wraplength=500, justify=tk.LEFT)
+            font=("Arial", 9), bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_SECONDARY, wraplength=500, justify=tk.LEFT)
         warning_text.pack(anchor=tk.W)
         
         # Buttons frame
-        button_frame = tk.Frame(main_frame)
+        button_frame = tk.Frame(main_frame, bg=TriOSTheme.SURFACE)
         button_frame.pack(fill=tk.X, pady=(20, 0))
         
         def on_confirm():
@@ -1441,14 +1463,15 @@ class ModlistInstaller:
             dialog.destroy()
         
         # Center the buttons
-        button_container = tk.Frame(button_frame)
+        button_container = tk.Frame(button_frame, bg=TriOSTheme.SURFACE)
         button_container.pack(anchor=tk.CENTER)
         
-        tk.Button(button_container, text="Confirm Installation", command=on_confirm,
-                 font=("Arial", 10, "bold"), cursor="hand2", padx=20, pady=8, bg="#4CAF50", fg="black").pack(side=tk.LEFT, padx=(0, 8))
+        from .ui_builder import _create_button
+        _create_button(button_container, "Confirm Installation", on_confirm,
+                      width=18, button_type="success").pack(side=tk.LEFT, padx=5)
         
-        tk.Button(button_container, text="Cancel", command=on_cancel,
-                 font=("Arial", 10), cursor="hand2", padx=20, pady=8).pack(side=tk.LEFT)
+        _create_button(button_container, "Cancel", on_cancel,
+                      width=12, button_type="secondary").pack(side=tk.LEFT, padx=5)
         
         # Keyboard bindings
         dialog.bind("<Escape>", lambda e: on_cancel())

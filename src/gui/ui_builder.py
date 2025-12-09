@@ -5,6 +5,7 @@ Contains functions to create the user interface components.
 
 import tkinter as tk
 from tkinter import ttk, scrolledtext
+import sys
 from utils.theme import TriOSTheme
 
 from core import (
@@ -14,30 +15,147 @@ from core import (
     UI_LEFT_PANEL_MINSIZE
 )
 
+# Detect macOS
+IS_MACOS = sys.platform == 'darwin'
 
-# Helper function to apply theme to a widget
-def _apply_theme_to_widget(widget, widget_type="frame"):
-    """Apply TriOS theme colors to a widget."""
-    if widget_type in ("frame", "labelframe"):
-        widget.configure(bg=TriOSTheme.SURFACE)
-    elif widget_type == "label":
-        widget.configure(bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY)
-    elif widget_type == "text":
-        widget.configure(bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, 
-                        insertbackground=TriOSTheme.PRIMARY)
-    elif widget_type == "entry":
-        widget.configure(bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY,
-                        insertbackground=TriOSTheme.PRIMARY)
+
+class ThemedButton(tk.Canvas):
+    """Custom button widget that respects colors on macOS."""
+    
+    def __init__(self, parent, text, command=None, bg=None, fg=None, 
+                 activebackground=None, activeforeground=None, width=100, 
+                 font=("Arial", 9, "bold"), state=tk.NORMAL, **kwargs):
+        # Calculate height from font size
+        font_size = font[1] if isinstance(font, tuple) else 9
+        height = font_size + 16
+        
+        # Remove 'state' from kwargs if it exists
+        kwargs.pop('state', None)
+        
+        super().__init__(parent, width=width, height=height, 
+                        highlightthickness=0, bg=bg or TriOSTheme.PRIMARY, **kwargs)
+        
+        self.command = command
+        self.bg_color = bg or TriOSTheme.PRIMARY
+        self.fg_color = fg or TriOSTheme.SURFACE_DARK
+        self.active_bg = activebackground or self.bg_color
+        self.active_fg = activeforeground or self.fg_color
+        self.text = text
+        self.font = font
+        self.is_pressed = False
+        self.is_disabled = (state == tk.DISABLED)
+        
+        # Draw button
+        self.rect = self.create_rectangle(0, 0, width, height, 
+                                          fill=self.bg_color, outline="", width=0)
+        self.text_item = self.create_text(width//2, height//2, text=text, 
+                                         fill=self.fg_color, font=font)
+        
+        # Apply initial state
+        if self.is_disabled:
+            self.itemconfig(self.rect, fill=TriOSTheme.SURFACE_LIGHT)
+            self.itemconfig(self.text_item, fill=TriOSTheme.TEXT_DISABLED)
+        else:
+            # Bind events only if not disabled
+            self.bind("<Button-1>", self.on_press)
+            self.bind("<ButtonRelease-1>", self.on_release)
+            self.bind("<Enter>", self.on_enter)
+            self.bind("<Leave>", self.on_leave)
+    
+    def on_press(self, event):
+        self.is_pressed = True
+        self.itemconfig(self.rect, fill=self.active_bg)
+        self.itemconfig(self.text_item, fill=self.active_fg)
+    
+    def on_release(self, event):
+        if self.is_pressed and self.command:
+            self.command()
+        self.is_pressed = False
+        # Check if mouse is still over button
+        x, y = event.x, event.y
+        if 0 <= x <= self.winfo_width() and 0 <= y <= self.winfo_height():
+            self.itemconfig(self.rect, fill=self.active_bg)
+            self.itemconfig(self.text_item, fill=self.active_fg)
+        else:
+            self.itemconfig(self.rect, fill=self.bg_color)
+            self.itemconfig(self.text_item, fill=self.fg_color)
+    
+    def on_enter(self, event):
+        if not self.is_pressed:
+            self.itemconfig(self.rect, fill=self.active_bg)
+            self.itemconfig(self.text_item, fill=self.active_fg)
+    
+    def on_leave(self, event):
+        if not self.is_pressed:
+            self.itemconfig(self.rect, fill=self.bg_color)
+            self.itemconfig(self.text_item, fill=self.fg_color)
+    
+    def configure(self, **kwargs):
+        """Allow configuration like normal widgets."""
+        if 'text' in kwargs:
+            # Handle text changes
+            new_text = kwargs.pop('text')
+            self.text = new_text
+            self.itemconfig(self.text_item, text=new_text)
+        
+        if 'state' in kwargs:
+            # Handle state changes (for disable/enable)
+            if kwargs['state'] == tk.DISABLED:
+                self.is_disabled = True
+                self.itemconfig(self.rect, fill=TriOSTheme.SURFACE_LIGHT)
+                self.itemconfig(self.text_item, fill=TriOSTheme.TEXT_DISABLED)
+                self.unbind("<Button-1>")
+                self.unbind("<ButtonRelease-1>")
+                self.unbind("<Enter>")
+                self.unbind("<Leave>")
+            elif kwargs['state'] == tk.NORMAL:
+                self.is_disabled = False
+                self.itemconfig(self.rect, fill=self.bg_color)
+                self.itemconfig(self.text_item, fill=self.fg_color)
+                self.bind("<Button-1>", self.on_press)
+                self.bind("<ButtonRelease-1>", self.on_release)
+                self.bind("<Enter>", self.on_enter)
+                self.bind("<Leave>", self.on_leave)
+            kwargs = {k: v for k, v in kwargs.items() if k != 'state'}
+        
+        if kwargs:  # Only call super if there are remaining kwargs
+            super().configure(**kwargs)
+    
+    config = configure  # Alias
 
 
 # Helper function to create buttons with consistent styling
 def _create_button(parent, text, command, width=10, font_size=9, button_type="primary", **kwargs):
     """Create a standard button with consistent styling using TriOS theme."""
     style = TriOSTheme.get_button_style(button_type)
-    # Merge theme style with additional kwargs
-    style.update(kwargs)
-    return tk.Button(parent, text=text, command=command, 
-                    font=("Arial", font_size, "bold"), width=width, **style)
+    
+    if IS_MACOS:
+        # Use custom Canvas-based button for macOS
+        # Augmenter la largeur pour éviter le crop du texte
+        pixel_width = max(width * 9, len(text) * 8 + 20)  # Plus de marge pour le texte
+        return ThemedButton(
+            parent, 
+            text=text, 
+            command=command,
+            bg=style.get('bg'),
+            fg=style.get('fg'),
+            activebackground=style.get('activebackground'),
+            activeforeground=style.get('activeforeground'),
+            width=pixel_width,
+            font=("Arial", font_size, "bold")
+        )
+    else:
+        # Use standard tk.Button for other platforms
+        style.update({
+            'relief': tk.FLAT,
+            'borderwidth': 1,
+            'highlightthickness': 0,
+            'padx': 8,
+            'pady': 5
+        })
+        style.update(kwargs)
+        return tk.Button(parent, text=text, command=command, 
+                        font=("Arial", font_size, "bold"), width=width, **style)
 
 
 def create_header(root):
@@ -73,7 +191,11 @@ def create_path_section(main_frame, path_var, browse_callback):
         font=("Arial", 10),
         bg=TriOSTheme.SURFACE_DARK,
         fg=TriOSTheme.TEXT_PRIMARY,
-        insertbackground=TriOSTheme.PRIMARY
+        insertbackground=TriOSTheme.PRIMARY,
+        relief=tk.FLAT,
+        highlightthickness=1,
+        highlightbackground=TriOSTheme.BORDER,
+        highlightcolor=TriOSTheme.PRIMARY
     )
     path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
     
@@ -115,7 +237,10 @@ def create_modlist_section(main_frame, mod_click_callback, pane_resize_callback,
         state=tk.DISABLED,
         bg=TriOSTheme.SURFACE_DARK,
         fg=TriOSTheme.TEXT_PRIMARY,
-        insertbackground=TriOSTheme.PRIMARY
+        insertbackground=TriOSTheme.PRIMARY,
+        relief=tk.FLAT,
+        highlightthickness=0,
+        borderwidth=0
     )
     header_text.pack(fill=tk.X, pady=(0, 5))
     
@@ -131,12 +256,13 @@ def create_modlist_section(main_frame, mod_click_callback, pane_resize_callback,
         search_var = tk.StringVar()
         search_entry = tk.Entry(search_frame, textvariable=search_var, font=("Arial", 10),
                                bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY,
-                               insertbackground=TriOSTheme.PRIMARY)
+                               insertbackground=TriOSTheme.PRIMARY, relief=tk.FLAT,
+                               highlightthickness=1, highlightbackground=TriOSTheme.BORDER,
+                               highlightcolor=TriOSTheme.PRIMARY)
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
         
-        clear_btn = tk.Button(search_frame, text="✕", command=lambda: search_var.set(""),
-                             font=("Arial", 10), width=3,
-                             **TriOSTheme.get_button_style("secondary"))
+        clear_btn = _create_button(search_frame, "✕", lambda: search_var.set(""),
+                                   width=3, font_size=10, button_type="secondary")
         clear_btn.pack(side=tk.RIGHT)
         
         # Bind search callback
@@ -161,7 +287,10 @@ def create_modlist_section(main_frame, mod_click_callback, pane_resize_callback,
         fg=TriOSTheme.TEXT_PRIMARY,
         insertbackground=TriOSTheme.PRIMARY,
         selectbackground=TriOSTheme.PRIMARY,
-        selectforeground=TriOSTheme.SURFACE_DARK
+        selectforeground=TriOSTheme.SURFACE_DARK,
+        relief=tk.FLAT,
+        highlightthickness=0,
+        borderwidth=0
     )
     mod_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     scrollbar.config(command=mod_listbox.yview)
@@ -266,7 +395,8 @@ def create_log_section(main_frame, current_mod_var=None):
     
     log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD, state=tk.DISABLED, height=35,
                                          bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY,
-                                         insertbackground=TriOSTheme.PRIMARY)
+                                         insertbackground=TriOSTheme.PRIMARY,
+                                         relief=tk.FLAT, highlightthickness=0, borderwidth=0)
     log_text.pack(fill=tk.BOTH, expand=True)
     
     return log_frame, progress_bar, log_text

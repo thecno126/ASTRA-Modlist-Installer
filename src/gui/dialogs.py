@@ -10,6 +10,7 @@ import threading
 import re
 from pathlib import Path
 from . import custom_dialogs
+from .ui_builder import _create_button
 from utils.theme import TriOSTheme
 
 
@@ -56,13 +57,19 @@ def open_add_mod_dialog(parent, app):
     category_var = tk.StringVar(value="Uncategorized")
 
     tk.Label(dlg, text="Mod Name:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=0, column=0, sticky="e", padx=8, pady=(12, 6))
-    tk.Entry(dlg, textvariable=name_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=0, column=1, padx=8, pady=(12, 6))
+    tk.Entry(dlg, textvariable=name_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, 
+            insertbackground=TriOSTheme.PRIMARY, relief=tk.FLAT, highlightthickness=1, 
+            highlightbackground=TriOSTheme.BORDER, highlightcolor=TriOSTheme.PRIMARY).grid(row=0, column=1, padx=8, pady=(12, 6))
 
     tk.Label(dlg, text="Download URL:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=1, column=0, sticky="e", padx=8, pady=6)
-    tk.Entry(dlg, textvariable=url_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=1, column=1, padx=8, pady=6)
+    tk.Entry(dlg, textvariable=url_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, 
+            insertbackground=TriOSTheme.PRIMARY, relief=tk.FLAT, highlightthickness=1, 
+            highlightbackground=TriOSTheme.BORDER, highlightcolor=TriOSTheme.PRIMARY).grid(row=1, column=1, padx=8, pady=6)
 
     tk.Label(dlg, text="Game Version (optional):", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=2, column=0, sticky="e", padx=8, pady=6)
-    tk.Entry(dlg, textvariable=game_version_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=2, column=1, padx=8, pady=6)
+    tk.Entry(dlg, textvariable=game_version_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, 
+            insertbackground=TriOSTheme.PRIMARY, relief=tk.FLAT, highlightthickness=1, 
+            highlightbackground=TriOSTheme.BORDER, highlightcolor=TriOSTheme.PRIMARY).grid(row=2, column=1, padx=8, pady=6)
 
     tk.Label(dlg, text="Category:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=3, column=0, sticky="e", padx=8, pady=6)
     category_combo = ttk.Combobox(dlg, textvariable=category_var, width=42, values=app.categories)
@@ -89,9 +96,15 @@ def open_add_mod_dialog(parent, app):
 
     btn_frame = tk.Frame(dlg, bg=TriOSTheme.SURFACE)
     btn_frame.grid(row=4, column=0, columnspan=2, pady=12)
-    tk.Button(btn_frame, text="Cancel", command=dlg.destroy, width=10, **TriOSTheme.get_button_style("secondary")).pack(side=tk.RIGHT, padx=6)
-    add_button = tk.Button(btn_frame, text="Add", command=submit, width=10, **TriOSTheme.get_button_style("success"))
-    add_button.pack(side=tk.RIGHT)
+    
+    # Centrer les boutons
+    btn_container = tk.Frame(btn_frame, bg=TriOSTheme.SURFACE)
+    btn_container.pack(expand=True)
+    
+    add_button = _create_button(btn_container, "Add", submit, width=12, button_type="success")
+    add_button.pack(side=tk.LEFT, padx=6)
+    
+    _create_button(btn_container, "Cancel", dlg.destroy, width=12, button_type="secondary").pack(side=tk.LEFT, padx=6)
 
 
 def open_edit_mod_dialog(parent, app, current_mod):
@@ -137,13 +150,19 @@ def open_edit_mod_dialog(parent, app, current_mod):
     category_var = tk.StringVar(value=current_mod.get('category', 'Uncategorized'))
 
     tk.Label(dlg, text="Mod Name:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=0, column=0, sticky="e", padx=8, pady=(12, 6))
-    tk.Entry(dlg, textvariable=name_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=0, column=1, padx=8, pady=(12, 6))
+    tk.Entry(dlg, textvariable=name_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, 
+            insertbackground=TriOSTheme.PRIMARY, relief=tk.FLAT, highlightthickness=1, 
+            highlightbackground=TriOSTheme.BORDER, highlightcolor=TriOSTheme.PRIMARY).grid(row=0, column=1, padx=8, pady=(12, 6))
 
     tk.Label(dlg, text="Download URL:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=1, column=0, sticky="e", padx=8, pady=6)
-    tk.Entry(dlg, textvariable=url_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=1, column=1, padx=8, pady=6)
+    tk.Entry(dlg, textvariable=url_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, 
+            insertbackground=TriOSTheme.PRIMARY, relief=tk.FLAT, highlightthickness=1, 
+            highlightbackground=TriOSTheme.BORDER, highlightcolor=TriOSTheme.PRIMARY).grid(row=1, column=1, padx=8, pady=6)
 
     tk.Label(dlg, text="Game Version (optional):", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=2, column=0, sticky="e", padx=8, pady=6)
-    tk.Entry(dlg, textvariable=game_version_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, insertbackground=TriOSTheme.PRIMARY).grid(row=2, column=1, padx=8, pady=6)
+    tk.Entry(dlg, textvariable=game_version_var, width=45, bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY, 
+            insertbackground=TriOSTheme.PRIMARY, relief=tk.FLAT, highlightthickness=1, 
+            highlightbackground=TriOSTheme.BORDER, highlightcolor=TriOSTheme.PRIMARY).grid(row=2, column=1, padx=8, pady=6)
 
     tk.Label(dlg, text="Category:", bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY).grid(row=3, column=0, sticky="e", padx=8, pady=6)
     category_combo = ttk.Combobox(dlg, textvariable=category_var, width=42, values=app.categories)
@@ -182,8 +201,14 @@ def open_edit_mod_dialog(parent, app, current_mod):
 
     btn_frame = tk.Frame(dlg, bg=TriOSTheme.SURFACE)
     btn_frame.grid(row=4, column=0, columnspan=2, pady=12)
-    tk.Button(btn_frame, text="Cancel", command=dlg.destroy, width=10, **TriOSTheme.get_button_style("secondary")).pack(side=tk.RIGHT, padx=6)
-    tk.Button(btn_frame, text="Save", command=submit, width=10, **TriOSTheme.get_button_style("success")).pack(side=tk.RIGHT)
+    
+    # Centrer les boutons
+    btn_container = tk.Frame(btn_frame, bg=TriOSTheme.SURFACE)
+    btn_container.pack(expand=True)
+    
+    _create_button(btn_container, "Save", submit, width=12, button_type="success").pack(side=tk.LEFT, padx=6)
+    
+    _create_button(btn_container, "Cancel", dlg.destroy, width=12, button_type="secondary").pack(side=tk.LEFT, padx=6)
 
 
 def open_manage_categories_dialog(parent, app):
@@ -211,7 +236,8 @@ def open_manage_categories_dialog(parent, app):
     
     cat_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set, height=15,
                             bg=TriOSTheme.SURFACE_DARK, fg=TriOSTheme.TEXT_PRIMARY,
-                            selectbackground=TriOSTheme.PRIMARY, selectforeground=TriOSTheme.SURFACE_DARK)
+                            selectbackground=TriOSTheme.PRIMARY, selectforeground=TriOSTheme.SURFACE_DARK,
+                            relief=tk.FLAT, highlightthickness=0, borderwidth=0)
     cat_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     scrollbar.config(command=cat_listbox.yview)
     
@@ -245,10 +271,10 @@ def open_manage_categories_dialog(parent, app):
         app.categories[idx], app.categories[idx+1] = app.categories[idx+1], app.categories[idx]
         refresh_category_listbox(idx+1)
     
-    up_btn = tk.Button(move_frame, text="↑", command=move_up, font=("Arial", 14, "bold"), width=3, **TriOSTheme.get_button_style("secondary"))
+    up_btn = _create_button(move_frame, "↑", move_up, width=3, font_size=14, button_type="secondary")
     up_btn.pack(pady=(0, 5))
     
-    down_btn = tk.Button(move_frame, text="↓", command=move_down, font=("Arial", 14, "bold"), width=3, **TriOSTheme.get_button_style("secondary"))
+    down_btn = _create_button(move_frame, "↓", move_down, width=3, font_size=14, button_type="secondary")
     down_btn.pack(pady=(5, 0))
         
     # Populate categories
@@ -332,29 +358,21 @@ def open_manage_categories_dialog(parent, app):
         app.display_modlist_info()
         app.log(f"Deleted category: {cat_name}")
     
-    # Create left-side buttons
-    left_frame = tk.Frame(btn_frame, bg=TriOSTheme.SURFACE)
-    left_frame.pack(side=tk.LEFT)
+    # Centrer tous les boutons
+    center_frame = tk.Frame(btn_frame, bg=TriOSTheme.SURFACE)
+    center_frame.pack(expand=True)
     
-    btn_add = tk.Button(left_frame, text="Add", command=add_category, **TriOSTheme.get_button_style("success"))
-    btn_rename = tk.Button(left_frame, text="Rename", command=rename_category, **TriOSTheme.get_button_style("info"))
-    btn_delete = tk.Button(left_frame, text="Delete", command=delete_category, **TriOSTheme.get_button_style("danger"))
-    
-    # Create right-side button
-    right_frame = tk.Frame(btn_frame, bg=TriOSTheme.SURFACE)
-    right_frame.pack(side=tk.RIGHT)
-    
-    btn_close = tk.Button(right_frame, text="Close", command=dlg.destroy, **TriOSTheme.get_button_style("secondary"))
-    
-    # Calculate width based on longest text
-    max_text_width = max(len("Add"), len("Rename"), len("Delete"), len("Close"))
-    for btn in [btn_add, btn_rename, btn_delete, btn_close]:
-        btn.config(width=max_text_width)
-    
+    btn_add = _create_button(center_frame, "Add", add_category, width=10, button_type="success")
     btn_add.pack(side=tk.LEFT, padx=5)
+    
+    btn_rename = _create_button(center_frame, "Rename", rename_category, width=10, button_type="info")
     btn_rename.pack(side=tk.LEFT, padx=5)
+    
+    btn_delete = _create_button(center_frame, "Delete", delete_category, width=10, button_type="danger")
     btn_delete.pack(side=tk.LEFT, padx=5)
-    btn_close.pack(padx=5)
+    
+    btn_close = _create_button(center_frame, "Close", dlg.destroy, width=10, button_type="secondary")
+    btn_close.pack(side=tk.LEFT, padx=5)
 
 
 def open_import_csv_dialog(parent, app):

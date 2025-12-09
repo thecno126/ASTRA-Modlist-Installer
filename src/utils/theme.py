@@ -68,6 +68,43 @@ class TriOSTheme:
     CORNER_RADIUS = 6  # Matching TriOS cornerRadius
     
     @classmethod
+    def configure_ttk_styles(cls, style):
+        """Configure ttk widget styles to match TriOS theme."""
+        # Configure Combobox
+        style.theme_use('clam')  # Use clam theme as base for customization
+        
+        style.configure('TCombobox',
+                       fieldbackground=cls.SURFACE_DARK,
+                       background=cls.SURFACE,
+                       foreground=cls.TEXT_PRIMARY,
+                       bordercolor=cls.BORDER,
+                       arrowcolor=cls.PRIMARY,
+                       selectbackground=cls.PRIMARY,
+                       selectforeground=cls.SURFACE_DARK)
+        
+        style.map('TCombobox',
+                 fieldbackground=[('readonly', cls.SURFACE_DARK)],
+                 selectbackground=[('readonly', cls.SURFACE_DARK)],
+                 selectforeground=[('readonly', cls.TEXT_PRIMARY)])
+        
+        # Configure Progressbar
+        style.configure('TProgressbar',
+                       background=cls.PRIMARY,
+                       troughcolor=cls.SURFACE_DARK,
+                       bordercolor=cls.BORDER,
+                       lightcolor=cls.PRIMARY,
+                       darkcolor=cls.PRIMARY_DARK)
+        
+        # Configure Frame
+        style.configure('TFrame',
+                       background=cls.SURFACE)
+        
+        # Configure Label
+        style.configure('TLabel',
+                       background=cls.SURFACE,
+                       foreground=cls.TEXT_PRIMARY)
+    
+    @classmethod
     def get_button_style(cls, button_type="primary"):
         """Get button styling based on type."""
         styles = {
