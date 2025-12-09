@@ -899,7 +899,7 @@ class ModlistInstaller:
         
         # Disable button during refresh
         if self.refresh_btn:
-            self.refresh_btn.config(state=tk.DISABLED, text="Refreshing...")
+            self.refresh_btn.config(state=tk.DISABLED, text="↻")
         
         self.log("=" * 50)
         self.log("Refreshing mod metadata from installed mods...")
@@ -916,7 +916,7 @@ class ModlistInstaller:
         finally:
             # Re-enable button
             if self.refresh_btn:
-                self.refresh_btn.config(state=tk.NORMAL, text="Refresh")
+                self.refresh_btn.config(state=tk.NORMAL, text="↻")
     
     def start_installation(self):
         """Start the installation process."""

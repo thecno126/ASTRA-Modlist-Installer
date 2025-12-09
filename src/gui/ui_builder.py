@@ -364,15 +364,15 @@ def create_button_panel(main_paned, callbacks):
     refresh_container.pack(pady=(0, 8), fill=tk.X)
     
     if IS_MACOS:
-        refresh_btn = ThemedButton(refresh_container, "↻ Refresh", command=callbacks['refresh'],
+        refresh_btn = ThemedButton(refresh_container, "↻", command=callbacks['refresh'],
                                   bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY,
                                   activebackground=TriOSTheme.SURFACE_LIGHT, activeforeground=TriOSTheme.TEXT_PRIMARY,
-                                  font=("Arial", 9))
+                                  font=("Arial", 14))
     else:
-        refresh_btn = tk.Button(refresh_container, text="↻ Refresh", command=callbacks['refresh'],
+        refresh_btn = tk.Button(refresh_container, text="↻", command=callbacks['refresh'],
                                bg=TriOSTheme.SURFACE, fg=TriOSTheme.TEXT_PRIMARY,
                                activebackground=TriOSTheme.SURFACE_LIGHT, activeforeground=TriOSTheme.TEXT_PRIMARY,
-                               relief=tk.FLAT, font=("Arial", 9), cursor="hand2")
+                               relief=tk.FLAT, font=("Arial", 14), cursor="hand2")
     refresh_btn.pack(fill=tk.X)
     
     categories_btn = _create_button(management_section, "Categories", callbacks['categories'], button_type="plain")
