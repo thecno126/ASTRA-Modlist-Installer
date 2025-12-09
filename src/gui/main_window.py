@@ -903,8 +903,13 @@ class ModlistInstaller:
         
         self.log("=" * 50)
         self.log("Refreshing mod metadata from installed mods...")
+        self.log("Reloading modlist configuration...")
         
         try:
+            # Reload modlist configuration from file
+            self.modlist_data = self.config_manager.load_modlist_config()
+            
+            # Update mod metadata from installed mods
             self._update_mod_metadata_from_installed(mods_dir)
             self.save_modlist_config()
             self.display_modlist_info()

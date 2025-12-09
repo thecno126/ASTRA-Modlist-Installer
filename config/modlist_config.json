@@ -1,6 +1,6 @@
 {
   "modlist_name": "ASTRA",
-  "version": "0.7",
+  "version": "0.8",
   "starsector_version": "0.98a-RC8",
   "description": "A vanilla friendly Starsector modlist",
   "mods": [
@@ -9,7 +9,7 @@
       "download_url": "https://github.com/Lukas22041/LunaLib/releases/latest/download/LunaLib.zip",
       "category": "Libs",
       "game_version": "0.98a-RC5",
-      "mod_version": "2.0.4",
+      "mod_version": "2.0.5",
       "mod_id": "lunalib"
     },
     {
@@ -45,14 +45,6 @@
       "mod_id": "nexerelin"
     },
     {
-      "name": "Phillip Andrada: Gas Station Manager",
-      "download_url": "https://drive.google.com/uc?export=download&id=1FDZoF81T14cAx3_feXBBqXuBFTFOGd1y",
-      "category": "Factions",
-      "game_version": "0.98a-RC7",
-      "mod_version": "1.14.1aa",
-      "mod_id": "PAGSM"
-    },
-    {
       "name": "Roider Union",
       "download_url": "https://github.com/SafariJohn/Roider-Union/raw/refs/heads/main/Roider%20Union%202.2.6.zip",
       "category": "Factions",
@@ -67,14 +59,6 @@
       "game_version": "0.98a",
       "mod_version": "1.4",
       "mod_id": "tahlan"
-    },
-    {
-      "name": "Meme Portraits",
-      "download_url": "https://drive.google.com/uc?export=download&id=1W04kNVKEnZZDghE8jE9Yr6RJXXb_kBsq",
-      "category": "Bonuses",
-      "game_version": "0.95a-RC15",
-      "mod_version": "1.06",
-      "mod_id": "memeportraits"
     },
     {
       "name": "LazyLib",
@@ -115,6 +99,22 @@
       "mod_version": "2.1.b",
       "game_version": "0.98a",
       "category": "Gameplay"
+    },
+    {
+      "mod_id": "PAGSM",
+      "name": "Phillip Andrada: Gas Station Manager",
+      "download_url": "https://drive.usercontent.google.com/download?id=1FDZoF81T14cAx3_feXBBqXuBFTFOGd1y&export=download&confirm=t",
+      "mod_version": "1.14.1aa",
+      "game_version": "0.98a-RC7",
+      "category": "Factions"
+    },
+    {
+      "mod_id": "memeportraits",
+      "name": "Meme portraits",
+      "download_url": "https://drive.google.com/uc?export=download&id=1W04kNVKEnZZDghE8jE9Yr6RJXXb_kBsq",
+      "mod_version": "1.06",
+      "game_version": "0.95a-RC15",
+      "category": "Bonuses"
     }
   ]
 }

@@ -91,6 +91,43 @@ def open_add_mod_dialog(parent, app):
             dlg.update()
             temp_file, is_7z = app.mod_installer.download_archive({'download_url': url, 'name': 'temp'})
             
+            # Handle Google Drive HTML response (virus scan warning)
+            if temp_file == 'GDRIVE_HTML':
+                status_var.set("")
+                # Show confirmation dialog
+                result = custom_dialogs.askyesno(
+                    "Google Drive Confirmation Required",
+                    "This file is too large for Google's virus scan.\n\n"
+                    "Google Drive requires manual confirmation to download large files.\n"
+                    "The download URL will be automatically fixed to bypass this warning.\n\n"
+                    "Do you want to continue?"
+                )
+                
+                if result:
+                    # Fix the URL to bypass virus scan and retry
+                    fixed_url = fix_google_drive_url(url)
+                    status_var.set("⬇ Retrying download with fixed URL...")
+                    dlg.update()
+                    temp_file, is_7z = app.mod_installer.download_archive(
+                        {'download_url': fixed_url, 'name': 'temp'}, 
+                        skip_gdrive_check=True
+                    )
+                    
+                    if not temp_file or temp_file == 'GDRIVE_HTML':
+                        custom_dialogs.showerror("Error", "Failed to download archive even with fixed URL")
+                        add_button.config(state=tk.NORMAL)
+                        cancel_button.config(state=tk.NORMAL)
+                        status_var.set("")
+                        return
+                    
+                    # Update the URL to use the fixed one
+                    url = fixed_url
+                else:
+                    add_button.config(state=tk.NORMAL)
+                    cancel_button.config(state=tk.NORMAL)
+                    status_var.set("")
+                    return
+            
             if not temp_file:
                 custom_dialogs.showerror("Error", "Failed to download archive from URL")
                 add_button.config(state=tk.NORMAL)

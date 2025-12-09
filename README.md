@@ -24,11 +24,15 @@ A professional tool to manage and install Starsector modlists with parallel down
 - ✨ **Enhanced Dialogs** - All popups now use consistent TriOS theme with centered buttons
 - 🔲 **Borderless Design** - Removed white borders from all text widgets for cleaner look
 - ⚡ **Non-blocking UI** - Async URL validation prevents UI freezing
-- 🚀 **Code refactoring** - 150+ lines eliminated, improved elegance and maintainability
+- 🚀 **Code refactoring** - ~280 lines eliminated through centralized utilities
 - 🎯 **URL validation cache** - Reduces redundant network requests (1-hour cache)
 - 🔁 **Automatic retry** - Up to 3 attempts with exponential backoff for network failures
 - 📝 **Silent saves** - No log spam from automatic configuration saves
 - 🛡️ **Error handling** - Specific exception handling instead of broad catches
+- 🍎 **macOS path validation** - Simplified validation for .app bundles
+- ↻ **Smart refresh** - Reloads both mod metadata and modlist configuration
+- 🔄 **Update indicators** - Visual markers (↑ orange) for outdated mods
+- 📥 **Google Drive fix** - Automatic confirmation dialog for large files requiring virus scan bypass
 
 ## 🚀 Quick Start
 
